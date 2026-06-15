@@ -23,6 +23,10 @@ export default function LoginPage() {
       setEmail('');
       setPassword('');
     }
+    else {
+      setEmail('member@catalyst.ai');
+      setPassword('password123');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
