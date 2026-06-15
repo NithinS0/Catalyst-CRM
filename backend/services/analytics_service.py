@@ -129,33 +129,50 @@ class AnalyticsService:
             AnalyticsService.seed_mock_events_if_needed()
         except Exception as e:
             print(f"Error seeding mock events: {e}")
-            
-        campaigns_count = AnalyticsRepository.get_campaigns_count()
-        revenue = AnalyticsRepository.get_total_revenue()
-        
-        event_counts = AnalyticsRepository.get_event_type_counts()
-        events_map = {"sent": 0, "delivered": 0, "opened": 0, "read": 0, "clicked": 0, "converted": 0, "failed": 0}
-        for row in event_counts:
-            et = row["event_type"].lower()
-            if et in events_map:
-                events_map[et] = row["count"]
-                
-        daily_performance = AnalyticsRepository.get_daily_performance()
-        channel_comparison = AnalyticsRepository.get_channel_comparison()
-        campaign_comparison = AnalyticsRepository.get_campaign_comparison()
-        
-        return {
-            "campaigns_count": campaigns_count,
-            "revenue": revenue,
-            "delivered": events_map["delivered"] or events_map["sent"],
-            "opened": events_map["opened"],
-            "clicked": events_map["clicked"],
-            "converted": events_map["converted"],
-            "sent": events_map["sent"],
-            "daily_performance": daily_performance,
-            "channel_comparison": channel_comparison,
-            "campaign_comparison": campaign_comparison
+
+        default = {
+            "campaigns_count": 0,
+            "revenue": 0.0,
+            "delivered": 0,
+            "opened": 0,
+            "clicked": 0,
+            "converted": 0,
+            "sent": 0,
+            "daily_performance": [],
+            "channel_comparison": [],
+            "campaign_comparison": []
         }
+
+        try:
+            campaigns_count = AnalyticsRepository.get_campaigns_count()
+            revenue = AnalyticsRepository.get_total_revenue()
+
+            event_counts = AnalyticsRepository.get_event_type_counts()
+            events_map = {"sent": 0, "delivered": 0, "opened": 0, "read": 0, "clicked": 0, "converted": 0, "failed": 0}
+            for row in event_counts:
+                et = row["event_type"].lower()
+                if et in events_map:
+                    events_map[et] = row["count"]
+
+            daily_performance = AnalyticsRepository.get_daily_performance()
+            channel_comparison = AnalyticsRepository.get_channel_comparison()
+            campaign_comparison = AnalyticsRepository.get_campaign_comparison()
+
+            return {
+                "campaigns_count": campaigns_count,
+                "revenue": revenue,
+                "delivered": events_map["delivered"] or events_map["sent"],
+                "opened": events_map["opened"],
+                "clicked": events_map["clicked"],
+                "converted": events_map["converted"],
+                "sent": events_map["sent"],
+                "daily_performance": daily_performance,
+                "channel_comparison": channel_comparison,
+                "campaign_comparison": campaign_comparison
+            }
+        except Exception as e:
+            print(f"[Analytics] Error fetching stats: {e}")
+            return default
 
     @staticmethod
     def get_ai_summary() -> Dict[str, str]:
