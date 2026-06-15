@@ -306,8 +306,11 @@ def run_agent_workflow(prompt: str, customer_id: Optional[str] = None) -> dict:
         try:
             state = specialist_fn(state)
         except Exception as exc:
+            import traceback
+            tb = traceback.format_exc()
+            print(f"[Catalyst] Specialist '{next_n}' raised exception:\n{tb}")
             state["action_logs"].append(f"[System] Specialist '{next_n}' failed: {exc}")
-            state["proposed_content"] = "I encountered an issue. Please try again."
+            state["proposed_content"] = f"Agent error ({type(exc).__name__}): {exc}"
     else:
         state["action_logs"].append("[Orchestrator] Handled directly.")
         if not state.get("proposed_content"):

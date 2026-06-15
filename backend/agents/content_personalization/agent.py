@@ -136,9 +136,9 @@ Customer History:
 
     Customer Information:
     Name: {customer['first_name']} {customer['last_name']}
-    Company: {customer['company'] or 'None'}
-    Status: {customer['status']}
-    Industry: {customer['custom_attributes'].get('industry', 'SaaS')}
+    Company: {customer.get('company') or 'N/A'}
+    Status: {customer.get('status', 'unknown')}
+    Industry: {(customer.get('custom_attributes') or {}).get('industry', 'SaaS')}
     
     RAG Memory Context:
     {memory_context}
