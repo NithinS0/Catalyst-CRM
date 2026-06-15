@@ -5,7 +5,7 @@ import LayoutWrapper from '@/components/layout-wrapper';
 import { api } from '@/services/api';
 import {
   Users, Search, Phone, Mail, Building2, Plus, Bot, Sparkles,
-  ChevronRight, RefreshCw, X, Calendar
+  ChevronRight, RefreshCw, X, Calendar, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/components/ui/toast';
@@ -133,6 +133,17 @@ export default function CustomersPage() {
     finally { setSaving(false); }
   };
 
+  const handleDeleteCustomer = async (e: React.MouseEvent, id: string, name: string) => {
+    e.stopPropagation();
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    try {
+      await api.deleteCustomer(id);
+      success('Contact deleted');
+      if (selectedCustomerId === id) { setSelectedCustomerId(null); setSelectedCustomer(null); }
+      loadCustomers();
+    } catch (err: any) { toastError(err.message || 'Failed to delete contact'); }
+  };
+
   const filteredCustomers = customers.filter(c => {
     const q = searchQuery.toLowerCase();
     return `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
@@ -209,7 +220,7 @@ export default function CustomersPage() {
                         setMobileActiveView('detail');
                       }}
                       whileHover={{ x: isSelected ? 0 : 2 }}
-                      className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50/60 border-l-2 border-indigo-600' : 'border-l-2 border-transparent hover:bg-[var(--bg-overlay)]/40'}`}
+                      className={`group flex items-center justify-between p-3.5 cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50/60 border-l-2 border-indigo-600' : 'border-l-2 border-transparent hover:bg-[var(--bg-overlay)]/40'}`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className={`w-8 h-8 rounded-xl text-xs font-bold flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-indigo-600 text-white' : 'bg-[var(--bg-overlay)] text-zinc-500 border border-[var(--border)]'}`}>
@@ -220,10 +231,17 @@ export default function CustomersPage() {
                           <p className="text-[10px] text-zinc-400 truncate">{c.company || 'Independent'}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0">
                         <span className={`text-[10px] font-bold tabular-nums ${(c.lead_score || 0) >= 80 ? 'text-emerald-600' : 'text-zinc-400'}`}>
                           Interest: {c.lead_score || 0}%
                         </span>
+                        <button
+                          onClick={(e) => handleDeleteCustomer(e, c.id, `${c.first_name} ${c.last_name}`)}
+                          className="ml-1 p-1 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Delete contact"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                         <ChevronRight className="w-3 h-3 text-zinc-300" />
                       </div>
                     </motion.div>

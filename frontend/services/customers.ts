@@ -20,4 +20,6 @@ export const customerService = {
   createSegment: (segment: Record<string, unknown>) =>
     request('/api/segments', { method: 'POST', body: JSON.stringify(segment) }),
   evaluateSegment: (segmentId: string) => request(`/api/segments/${segmentId}/evaluate`),
+  deleteSegment: (segmentId: string) =>
+    request(`/api/segments/${segmentId}`, { method: 'DELETE' }),
 };

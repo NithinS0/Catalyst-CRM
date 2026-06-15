@@ -29,4 +29,7 @@ export const campaignService = {
 
   getCampaignReport: (campaignId: string) =>
     request<{ report: string }>(`/api/campaigns/${campaignId}/report`),
+
+  deleteCampaign: (campaignId: string) =>
+    request(`/api/campaigns/${campaignId}`, { method: 'DELETE' }),
 };

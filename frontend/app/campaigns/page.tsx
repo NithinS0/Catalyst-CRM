@@ -6,7 +6,7 @@ import { api } from '@/services/api';
 import {
   Megaphone, Plus, Play, Mail, MessageSquare, Phone,
   CheckCircle, FileText, RefreshCw, X, Download, Sparkles,
-  TrendingUp, BarChart2, Lightbulb, ArrowRight
+  TrendingUp, BarChart2, Lightbulb, ArrowRight, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/components/ui/toast';
@@ -312,6 +312,17 @@ export default function CampaignsPage() {
     }
   };
 
+  const handleDeleteCampaign = async (id: string, name: string) => {
+    if (!confirm(`Delete campaign "${name}"? This cannot be undone.`)) return;
+    try {
+      await api.deleteCampaign(id);
+      success('Campaign deleted');
+      loadData();
+    } catch (err: any) {
+      toastError(err.message || 'Failed to delete campaign');
+    }
+  };
+
   const translateCampaignStatus = (status: string) => {
     switch (status) {
       case 'active': return 'Sending';
@@ -463,6 +474,13 @@ export default function CampaignsPage() {
                         title="View AI Campaign Report"
                       >
                         <FileText className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCampaign(camp.id, camp.name)}
+                        className="btn btn-secondary text-xs py-2 px-3 rounded-xl hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-colors"
+                        title="Delete campaign"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </motion.div>

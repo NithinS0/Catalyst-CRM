@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import LayoutWrapper from '@/components/layout-wrapper';
 import { api } from '@/services/api';
-import { Layers, Plus, Play, Users, X, RefreshCw, ChevronRight } from 'lucide-react';
+import { Layers, Plus, Play, Users, X, RefreshCw, ChevronRight, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/components/ui/toast';
 import { SkeletonCard } from '@/components/ui/skeleton';
@@ -105,6 +105,17 @@ export default function SegmentsPage() {
     }
   };
 
+  const handleDeleteSegment = async (id: string, name: string) => {
+    if (!confirm(`Delete group "${name}"? This cannot be undone.`)) return;
+    try {
+      await api.deleteSegment(id);
+      success('Group deleted');
+      loadSegments();
+    } catch (err: any) {
+      toastError(err.message || 'Failed to delete group');
+    }
+  };
+
   return (
     <LayoutWrapper>
       <motion.div variants={container} initial="hidden" animate="show" className="space-y-7 pb-8 text-[var(--text-primary)]">
@@ -142,12 +153,21 @@ export default function SegmentsPage() {
                           {seg.description && <p className="text-[10px] text-zinc-400 mt-0.5">{seg.description}</p>}
                         </div>
                       </div>
-                      {matchCount !== undefined && (
-                        <div className="text-right shrink-0">
-                          <p className="text-2xl font-black text-emerald-600">{matchCount}</p>
-                          <p className="text-[9px] text-zinc-400 font-bold uppercase">matching people</p>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {matchCount !== undefined && (
+                          <div className="text-right">
+                            <p className="text-2xl font-black text-emerald-600">{matchCount}</p>
+                            <p className="text-[9px] text-zinc-400 font-bold uppercase">matching people</p>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => handleDeleteSegment(seg.id, seg.name)}
+                          className="p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          title="Delete group"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Rules */}

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional, Dict, Any
 from backend.services.customer_service import CustomerService
+from backend.database.repositories.campaign_repository import CampaignRepository
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 segments_router = APIRouter(prefix="/api/segments", tags=["segments"])
@@ -135,5 +136,13 @@ def evaluate_segment(segment_id: str):
         return CustomerService.evaluate_segment(segment_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@segments_router.delete("/{segment_id}")
+def delete_segment(segment_id: str):
+    try:
+        CampaignRepository.delete_segment(segment_id)
+        return {"message": "Segment deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
