@@ -1,140 +1,144 @@
 import json
 from typing import Optional, List, Dict, Any
-from backend.database.supabase import get_db_cursor, execute_query, execute_insert
+from backend.database.supabase import get_db_cursor, execute_query, execute_insert, get_supabase
 from backend.rag.embeddings import get_embedding
 
 class MemoryRepository:
     @staticmethod
     def save_interaction_embedding(customer_id: str, content: str, metadata: dict = None) -> Dict[str, Any]:
-        """
-        Saves an embedding for customer interaction memory (legacy table).
-        """
-        embedding = get_embedding(content)
-        meta_json = json.dumps(metadata or {})
-        
-        query = """
-            INSERT INTO public.customer_embeddings (customer_id, embedding, content, metadata)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id;
-        """
-        params = (customer_id, embedding, content, meta_json)
-        return execute_insert(query, params)
+        """Saves an embedding for customer interaction memory (legacy table)."""
+        try:
+            embedding = get_embedding(content)
+            meta_json = json.dumps(metadata or {})
+            query = """
+                INSERT INTO public.customer_embeddings (customer_id, embedding, content, metadata)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id;
+            """
+            return execute_insert(query, (customer_id, embedding, content, meta_json))
+        except Exception as e:
+            print(f"[MemoryRepository] save_interaction_embedding failed (pgvector): {e}")
+            return {}
 
     @staticmethod
     def search_similar_interactions(customer_id: str, query: str, limit: int = 5) -> List[Dict[str, Any]]:
-        """
-        Search customer_embeddings for items similar to query using cosine distance (legacy table).
-        """
-        query_vector = get_embedding(query)
-        
-        sql = """
-            SELECT id, customer_id, content, metadata, 
-                   (embedding <=> %s::vector) as distance
-            FROM public.customer_embeddings
-            WHERE customer_id = %s
-            ORDER BY distance ASC
-            LIMIT %s;
-        """
-        return execute_query(sql, (query_vector, customer_id, limit)) or []
+        """Search customer_embeddings using cosine distance (pgvector)."""
+        try:
+            query_vector = get_embedding(query)
+            sql = """
+                SELECT id, customer_id, content, metadata,
+                       (embedding <=> %s::vector) as distance
+                FROM public.customer_embeddings
+                WHERE customer_id = %s
+                ORDER BY distance ASC
+                LIMIT %s;
+            """
+            return execute_query(sql, (query_vector, customer_id, limit)) or []
+        except Exception as e:
+            print(f"[MemoryRepository] search_similar_interactions failed (pgvector): {e}")
+            return []
 
     @staticmethod
     def store_document(
-        collection: str, 
-        content: str, 
-        metadata: dict = None, 
+        collection: str,
+        content: str,
+        metadata: dict = None,
         customer_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Stores a document in the public.memory_documents table under the specified collection.
-        """
-        embedding = get_embedding(content)
-        meta = metadata.copy() if metadata else {}
-        meta["collection"] = collection
-        meta_json = json.dumps(meta)
-        
-        title = meta.get("title") or f"{collection} Document"
-        
-        query = """
-            INSERT INTO public.memory_documents (customer_id, title, content, embedding, metadata)
-            VALUES (%s, %s, %s, %s::vector, %s)
-            RETURNING id, customer_id, title, content, metadata, created_at;
-        """
-        return execute_insert(query, (customer_id, title, content, embedding, meta_json))
+        """Stores a document using pgvector. Falls back silently if unavailable."""
+        try:
+            embedding = get_embedding(content)
+            meta = metadata.copy() if metadata else {}
+            meta["collection"] = collection
+            meta_json = json.dumps(meta)
+            title = meta.get("title") or f"{collection} Document"
+            query = """
+                INSERT INTO public.memory_documents (customer_id, title, content, embedding, metadata)
+                VALUES (%s, %s, %s, %s::vector, %s)
+                RETURNING id, customer_id, title, content, metadata, created_at;
+            """
+            return execute_insert(query, (customer_id, title, content, embedding, meta_json))
+        except Exception as e:
+            print(f"[MemoryRepository] store_document failed (pgvector): {e}")
+            return {}
 
     @staticmethod
     def retrieve_documents(
-        collection: str, 
-        customer_id: Optional[str] = None, 
+        collection: str,
+        customer_id: Optional[str] = None,
         limit: int = 10
     ) -> List[Dict[str, Any]]:
-        """
-        Retrieves documents from public.memory_documents by collection and optional customer filter.
-        """
-        if customer_id:
-            query = """
-                SELECT id, customer_id, title, content, metadata, created_at
-                FROM public.memory_documents
-                WHERE (metadata->>'collection') = %s AND customer_id = %s
-                ORDER BY created_at DESC
-                LIMIT %s;
-            """
-            params = (collection, customer_id, limit)
-        else:
-            query = """
-                SELECT id, customer_id, title, content, metadata, created_at
-                FROM public.memory_documents
-                WHERE (metadata->>'collection') = %s
-                ORDER BY created_at DESC
-                LIMIT %s;
-            """
-            params = (collection, limit)
-            
-        rows = execute_query(query, params)
-        return [dict(row) for row in rows] if rows else []
+        """Retrieves documents from memory_documents by collection. Falls back to empty list."""
+        try:
+            if customer_id:
+                query = """
+                    SELECT id, customer_id, title, content, metadata, created_at
+                    FROM public.memory_documents
+                    WHERE (metadata->>'collection') = %s AND customer_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT %s;
+                """
+                params = (collection, customer_id, limit)
+            else:
+                query = """
+                    SELECT id, customer_id, title, content, metadata, created_at
+                    FROM public.memory_documents
+                    WHERE (metadata->>'collection') = %s
+                    ORDER BY created_at DESC
+                    LIMIT %s;
+                """
+                params = (collection, limit)
+            rows = execute_query(query, params)
+            return [dict(row) for row in rows] if rows else []
+        except Exception as e:
+            print(f"[MemoryRepository] retrieve_documents failed (pgvector): {e}")
+            return []
 
     @staticmethod
     def semantic_search(
-        collection: str, 
-        query: str, 
-        customer_id: Optional[str] = None, 
+        collection: str,
+        query: str,
+        customer_id: Optional[str] = None,
         limit: int = 5
     ) -> List[Dict[str, Any]]:
-        """
-        Performs cosine-distance similarity search using pgvector on memory_documents.
-        """
-        query_vector = get_embedding(query)
-        
-        if customer_id:
-            sql = """
-                SELECT id, customer_id, title, content, metadata, created_at,
-                       (embedding <=> %s::vector) as distance
-                FROM public.memory_documents
-                WHERE (metadata->>'collection') = %s AND (customer_id = %s OR customer_id IS NULL)
-                ORDER BY distance ASC
-                LIMIT %s;
-            """
-            params = (query_vector, collection, customer_id, limit)
-        else:
-            sql = """
-                SELECT id, customer_id, title, content, metadata, created_at,
-                       (embedding <=> %s::vector) as distance
-                FROM public.memory_documents
-                WHERE (metadata->>'collection') = %s
-                ORDER BY distance ASC
-                LIMIT %s;
-            """
-            params = (query_vector, collection, limit)
-            
-        rows = execute_query(sql, params)
-        return [dict(row) for row in rows] if rows else []
+        """Cosine-distance similarity search using pgvector. Falls back to empty list."""
+        try:
+            query_vector = get_embedding(query)
+            if customer_id:
+                sql = """
+                    SELECT id, customer_id, title, content, metadata, created_at,
+                           (embedding <=> %s::vector) as distance
+                    FROM public.memory_documents
+                    WHERE (metadata->>'collection') = %s AND (customer_id = %s OR customer_id IS NULL)
+                    ORDER BY distance ASC
+                    LIMIT %s;
+                """
+                params = (query_vector, collection, customer_id, limit)
+            else:
+                sql = """
+                    SELECT id, customer_id, title, content, metadata, created_at,
+                           (embedding <=> %s::vector) as distance
+                    FROM public.memory_documents
+                    WHERE (metadata->>'collection') = %s
+                    ORDER BY distance ASC
+                    LIMIT %s;
+                """
+                params = (query_vector, collection, limit)
+            rows = execute_query(sql, params)
+            return [dict(row) for row in rows] if rows else []
+        except Exception as e:
+            print(f"[MemoryRepository] semantic_search failed (pgvector): {e}")
+            return []
 
     @staticmethod
     def seed_default_memories():
-        """
-        Seeds default documents into Brand Memory, Campaign Memory, and Customer Memory.
-        """
-        count_res = execute_query("SELECT COUNT(*) as count FROM public.memory_documents;")
-        if count_res and count_res[0]["count"] > 0:
+        """Seeds default documents into Brand/Campaign/Customer Memory. Silent if DB unavailable."""
+        try:
+            count_res = get_supabase().table("memory_documents").select("id", count="exact").execute()
+            if count_res.count and count_res.count > 0:
+                return
+        except Exception as e:
+            print(f"[RAG] Cannot check memory_documents count: {e}")
             return
             
         print("[RAG] Seeding default RAG memories into database...")

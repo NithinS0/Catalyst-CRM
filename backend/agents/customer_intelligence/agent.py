@@ -3,7 +3,7 @@ import openai
 from typing import Dict, Any
 from backend.config import settings
 from backend.database.repositories.order_repository import OrderRepository
-from backend.database.supabase import execute_query, get_db_cursor
+from backend.database.supabase import get_supabase
 from backend.agents.customer_intelligence.scoring import (
     calculate_churn_score,
     calculate_health_score,
@@ -64,9 +64,9 @@ def run_lead_scorer(state: dict) -> dict:
     
     customer_id = state.get("customer_id")
     if not customer_id:
-        res = execute_query("SELECT id FROM public.customers LIMIT 1;")
-        if res:
-            customer_id = str(res[0]["id"])
+        res = get_supabase().table("customers").select("id").limit(1).execute()
+        if res.data:
+            customer_id = str(res.data[0]["id"])
             logs.append(f"[Lead Scorer] No customer_id provided, resolved to: {customer_id}")
         else:
             state["action_logs"] = logs
@@ -74,18 +74,19 @@ def run_lead_scorer(state: dict) -> dict:
             return state
 
     # Fetch customer and timeline
-    cust_res = execute_query("SELECT * FROM public.customers WHERE id = %s;", (customer_id,))
-    interactions = execute_query("SELECT * FROM public.interactions WHERE customer_id = %s ORDER BY created_at DESC;", (customer_id,))
-    
-    if not cust_res:
+    cust_res = get_supabase().table("customers").select("*").eq("id", customer_id).single().execute()
+    int_res = get_supabase().table("interactions").select("*").eq("customer_id", customer_id).order("created_at", desc=True).execute()
+    interactions = int_res.data or []
+
+    if not cust_res.data:
         logs.append(f"[Lead Scorer] Customer {customer_id} not found.")
         state["action_logs"] = logs
         state["next_node"] = "end"
         return state
-        
-    customer = cust_res[0]
+
+    customer = cust_res.data
     timeline_str = "\n".join([
-        f"- {i['type'].upper()} ({i['created_at'].strftime('%Y-%m-%d')}): {i['summary']}. details: {i['details'] or ''}"
+        f"- {i['type'].upper()} ({str(i['created_at'])[:10]}): {i['summary']}. details: {i['details'] or ''}"
         for i in (interactions or [])
     ])
     
@@ -141,23 +142,23 @@ def run_lead_scorer(state: dict) -> dict:
         new_score, explanation = _fallback_scoring(customer, interactions)
         
     # Update customer lead score in Database
-    with get_db_cursor() as cur:
-        cur.execute(
-            "UPDATE public.customers SET lead_score = %s WHERE id = %s;",
-            (new_score, customer_id)
-        )
+    try:
+        get_supabase().table("customers").update({"lead_score": new_score}).eq("id", customer_id).execute()
         logs.append(f"[Lead Scorer] Updated customer {customer['first_name']} lead score from {customer['lead_score']} to {new_score}.")
-    
+    except Exception as e:
+        logs.append(f"[Lead Scorer] Failed to update score: {e}")
+
     # Save the analysis as a system note in interactions table
-    with get_db_cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO public.interactions (customer_id, type, summary, details)
-            VALUES (%s, 'note', %s, %s);
-            """,
-            (customer_id, f"AI Lead Score Evaluation: {new_score}", explanation)
-        )
+    try:
+        get_supabase().table("interactions").insert({
+            "customer_id": customer_id,
+            "type": "note",
+            "summary": f"AI Lead Score Evaluation: {new_score}",
+            "details": explanation
+        }).execute()
         logs.append("[Lead Scorer] Logged scoring explanation to customer timeline.")
+    except Exception as e:
+        logs.append(f"[Lead Scorer] Failed to log note: {e}")
         
     state["action_logs"] = logs
     state["suggested_score"] = new_score

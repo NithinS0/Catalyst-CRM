@@ -1,6 +1,6 @@
 import json
 from typing import Optional, Dict, Any
-from backend.database.supabase import execute_query, execute_insert
+from backend.database.supabase import get_supabase
 
 class LogRepository:
     @staticmethod
@@ -12,17 +12,16 @@ class LogRepository:
         input_data: Optional[Dict[str, Any]],
         output_data: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        query = """
-            INSERT INTO public.agent_logs (agent_name, customer_id, task_description, status, input_data, output_data)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING *;
-        """
-        params = (
-            agent_name,
-            customer_id,
-            task_description,
-            status,
-            json.dumps(input_data or {}),
-            json.dumps(output_data or {})
-        )
-        return execute_insert(query, params)
+        try:
+            res = get_supabase().table("agent_logs").insert({
+                "agent_name": agent_name,
+                "customer_id": customer_id,
+                "task_description": task_description,
+                "status": status,
+                "input_data": input_data or {},
+                "output_data": output_data or {}
+            }).execute()
+            return res.data[0] if res.data else {}
+        except Exception as e:
+            print(f"[LogRepository] Failed to insert log: {e}")
+            return {}

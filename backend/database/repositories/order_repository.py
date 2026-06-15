@@ -1,24 +1,39 @@
-from typing import List, Dict, Any, Optional
-from backend.database.supabase import execute_query
+from typing import List, Dict, Any
+from backend.database.supabase import get_supabase
 
 class OrderRepository:
     @staticmethod
     def get_rfm_profiles(limit: int = 200) -> List[Dict[str, Any]]:
-        query = """
-            SELECT c.id, c.first_name, c.last_name, c.status, c.lead_score,
-                   COALESCE(SUM(o.total_amount), 0) as monetary,
-                   COUNT(o.id) as frequency,
-                   EXTRACT(DAY FROM NOW() - MAX(o.created_at)) as recency
-            FROM public.customers c
-            LEFT JOIN public.orders o ON c.id = o.customer_id AND o.status = 'completed'
-            GROUP BY c.id, c.first_name, c.last_name, c.status, c.lead_score
-            LIMIT %s;
-        """
-        return execute_query(query, (limit,)) or []
+        sb = get_supabase()
+        customers = sb.table("customers").select("id, first_name, last_name, status, lead_score").limit(limit).execute()
+        orders = sb.table("orders").select("customer_id, total_amount, created_at").eq("status", "completed").execute()
+
+        order_map: Dict[str, list] = {}
+        for o in (orders.data or []):
+            order_map.setdefault(o["customer_id"], []).append(o)
+
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        results = []
+        for c in (customers.data or []):
+            cid = c["id"]
+            cust_orders = order_map.get(cid, [])
+            monetary = sum(float(o.get("total_amount") or 0) for o in cust_orders)
+            frequency = len(cust_orders)
+            if cust_orders:
+                latest = max(o["created_at"] for o in cust_orders)
+                try:
+                    dt = datetime.fromisoformat(latest.replace("Z", "+00:00"))
+                    recency = (now - dt).days
+                except Exception:
+                    recency = 365.0
+            else:
+                recency = 365.0
+            results.append({**c, "monetary": monetary, "frequency": frequency, "recency": recency})
+        return results
 
     @staticmethod
     def get_average_order_value() -> float:
-        res = execute_query("SELECT AVG(total_amount) as avg_amount FROM public.orders WHERE status = 'completed';")
-        if res and res[0]["avg_amount"] is not None:
-            return float(res[0]["avg_amount"])
-        return 145.50
+        res = get_supabase().table("orders").select("total_amount").eq("status", "completed").execute()
+        amounts = [float(r["total_amount"]) for r in (res.data or []) if r.get("total_amount")]
+        return round(sum(amounts) / len(amounts), 2) if amounts else 145.50

@@ -57,13 +57,13 @@ def read_root():
 
 @app.get("/health")
 def health_check():
-    from backend.database.supabase import execute_query
+    from backend.database.supabase import get_supabase
     try:
-        execute_query("SELECT 1;")
+        get_supabase().table("customers").select("id").limit(1).execute()
         db_status = "connected"
     except Exception as e:
         db_status = f"error: {str(e)}"
-        
+
     return {
         "status": "healthy",
         "database": db_status

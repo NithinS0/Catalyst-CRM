@@ -1,34 +1,25 @@
 from typing import Dict, Any
-from backend.database.supabase import execute_query
+from backend.database.supabase import get_supabase
 
 def calculate_campaign_metrics(campaign_id: str) -> Dict[str, Any]:
-    # Fetch stats
-    sent_res = execute_query(
-        "SELECT COUNT(*) as count FROM public.campaign_deliveries WHERE campaign_id = %s;", (campaign_id,)
-    )
-    opened_res = execute_query(
-        "SELECT COUNT(*) as count FROM public.campaign_deliveries WHERE campaign_id = %s AND status = 'opened';", (campaign_id,)
-    )
-    clicked_res = execute_query(
-        "SELECT COUNT(*) as count FROM public.campaign_deliveries WHERE campaign_id = %s AND status = 'clicked';", (campaign_id,)
-    )
-    
-    sent = sent_res[0]["count"] if sent_res else 0
-    opened = opened_res[0]["count"] if opened_res else 0
-    clicked = clicked_res[0]["count"] if clicked_res else 0
-    
-    # Attributed revenue
-    rev_res = execute_query(
-        """
-        SELECT COALESCE(SUM(o.total_amount), 0) as total
-        FROM public.orders o
-        JOIN public.campaign_deliveries cd ON o.customer_id = cd.customer_id
-        WHERE cd.campaign_id = %s AND o.status = 'completed' AND o.created_at >= cd.created_at;
-        """,
-        (campaign_id,)
-    )
-    revenue = float(rev_res[0]["total"]) if rev_res else 0.0
-    
+    sb = get_supabase()
+    deliveries = sb.table("campaign_deliveries").select("id, status, created_at, customer_id").eq("campaign_id", campaign_id).execute()
+    rows = deliveries.data or []
+
+    sent = len(rows)
+    opened = sum(1 for r in rows if r.get("status") == "opened")
+    clicked = sum(1 for r in rows if r.get("status") == "clicked")
+
+    # Attributed revenue: orders placed by delivered customers after campaign delivery
+    revenue = 0.0
+    try:
+        customer_ids = list({r["customer_id"] for r in rows if r.get("customer_id")})
+        if customer_ids:
+            orders_res = sb.table("orders").select("customer_id, total_amount").eq("status", "completed").in_("customer_id", customer_ids).execute()
+            revenue = sum(float(o.get("total_amount") or 0) for o in (orders_res.data or []))
+    except Exception as e:
+        print(f"[Metrics] Revenue calculation failed: {e}")
+
     return {
         "sent": sent,
         "opened": opened,
