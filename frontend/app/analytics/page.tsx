@@ -5,8 +5,9 @@ import LayoutWrapper from '@/components/layout-wrapper';
 import { api } from '@/services/api';
 import {
   TrendingUp, Mail, Sparkles, ArrowUpRight, CheckCircle, DollarSign,
-  AlertTriangle, Lightbulb, Radio, Clock, Layers, RefreshCw
+  AlertTriangle, Lightbulb, Radio, Clock, Layers, RefreshCw, IndianRupee
 } from 'lucide-react';
+import { useCurrency } from '@/context/currency-context';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend
@@ -62,6 +63,7 @@ function formatTime(iso: string) {
 }
 
 export default function AnalyticsPage() {
+  const { formatCurrency, currency } = useCurrency();
   const [stats, setStats]           = useState<any>(null);
   const [summary, setSummary]       = useState<any>(null);
   const [events, setEvents]         = useState<any[]>([]);
@@ -115,7 +117,7 @@ export default function AnalyticsPage() {
     { label: 'Read',               value: stats.opened || 0,    icon: CheckCircle,  color: 'text-emerald-650',bg: 'bg-emerald-50 border-emerald-100 shadow-sm' },
     { label: 'Clicked Link',       value: stats.clicked || 0,   icon: ArrowUpRight, color: 'text-amber-600',  bg: 'bg-amber-50 border-amber-100 shadow-sm' },
     { label: 'Actions Completed',  value: stats.converted || 0, icon: TrendingUp,   color: 'text-pink-600',   bg: 'bg-pink-50 border-pink-100 shadow-sm' },
-    { label: 'Estimated Earnings', value: `$${(stats.revenue || 0).toLocaleString()}`, icon: DollarSign, color: 'text-emerald-650', bg: 'bg-emerald-50 border-emerald-100 shadow-sm' },
+    { label: 'Estimated Earnings', value: formatCurrency(stats.revenue || 0), icon: currency === 'INR' ? IndianRupee : DollarSign, color: 'text-emerald-650', bg: 'bg-emerald-50 border-emerald-100 shadow-sm' },
     { label: 'Message Campaigns',  value: stats.campaigns_count || 0, icon: Layers,  color: 'text-violet-650', bg: 'bg-violet-50 border-violet-100 shadow-sm' },
   ] : [];
 

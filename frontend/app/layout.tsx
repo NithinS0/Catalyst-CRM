@@ -25,6 +25,7 @@ export const metadata: Metadata = {
 };
 
 import { ToastProvider } from "@/components/ui/toast";
+import { CurrencyProvider } from "@/context/currency-context";
 
 export default function RootLayout({
   children,
@@ -36,7 +37,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} h-full bg-[#09090b] text-[#f4f4f5] antialiased`}
       >
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          <CurrencyProvider>
+            {children}
+          </CurrencyProvider>
+        </ToastProvider>
       </body>
     </html>
   );

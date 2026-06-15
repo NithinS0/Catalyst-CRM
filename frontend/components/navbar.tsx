@@ -13,8 +13,12 @@ import {
   LogOut,
   Menu,
   X,
+  IndianRupee,
+  DollarSign,
+  ChevronDown,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCurrency } from '@/context/currency-context';
 
 const menuItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -30,6 +34,8 @@ export default function Navbar() {
   const router = useRouter();
   const [user, setUser] = useState<{ email?: string } | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { currency, setCurrency } = useCurrency();
+  const [currencyOpen, setCurrencyOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -98,6 +104,76 @@ export default function Navbar() {
             </span>
             <span className="text-zinc-400 font-medium select-none">AI Status:</span>
             <span className="font-semibold text-[var(--text-primary)]">Online</span>
+          </div>
+
+          {/* Currency Switcher Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setCurrencyOpen(!currencyOpen)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--bg-overlay)] border border-[var(--border)] text-xs font-semibold text-[var(--text-primary)] hover:border-zinc-350 transition-all cursor-pointer select-none"
+            >
+              {currency === 'INR' ? (
+                <span className="flex items-center gap-1 text-emerald-600">
+                  <IndianRupee className="w-3.5 h-3.5" />
+                  <span>INR</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-indigo-600">
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span>USD</span>
+                </span>
+              )}
+              <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-150 ${currencyOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            <AnimatePresence>
+              {currencyOpen && (
+                <>
+                  {/* Backdrop to close */}
+                  <div className="fixed inset-0 z-30" onClick={() => setCurrencyOpen(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 mt-1.5 w-32 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] shadow-xl p-1 z-40"
+                  >
+                    <button
+                      onClick={() => {
+                        setCurrency('INR');
+                        setCurrencyOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-xs rounded-lg transition-colors cursor-pointer ${
+                        currency === 'INR'
+                          ? 'bg-indigo-50 text-indigo-600 font-semibold'
+                          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-overlay)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <IndianRupee className="w-3.5 h-3.5 shrink-0" />
+                        <span>INR (₹)</span>
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCurrency('USD');
+                        setCurrencyOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-xs rounded-lg transition-colors cursor-pointer ${
+                        currency === 'USD'
+                          ? 'bg-indigo-50 text-indigo-600 font-semibold'
+                          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-overlay)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <DollarSign className="w-3.5 h-3.5 shrink-0" />
+                        <span>USD ($)</span>
+                      </span>
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* User Profile */}

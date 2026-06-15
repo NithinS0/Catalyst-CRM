@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/components/ui/toast';
+import { useCurrency } from '@/context/currency-context';
 
 function EyeIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -131,6 +132,7 @@ function getLogColor(log: string): string {
 export default function CampaignStudioPage() {
   const router = useRouter();
   const { success, error: toastError } = useToast();
+  const { formatCurrency } = useCurrency();
 
   const [goal, setGoal]                 = useState('Win back high-value customers inactive for 60 days');
   const [isRunning, setIsRunning]       = useState(false);
@@ -616,7 +618,7 @@ export default function CampaignStudioPage() {
                       } else if (hoveredNode === 3) {
                         outputSummary = `Mapped customer logs and designated ${results.recommended_channel.toUpperCase()} as the best engagement channel.`;
                       } else if (hoveredNode === 4) {
-                        outputSummary = `Calculated conversion estimates: expected open rate ${results.predicted_outcomes?.open_rate}%, projected revenue $${results.predicted_outcomes?.projected_revenue?.toLocaleString()} (expected ROI: ${results.predicted_outcomes?.estimated_roi}%).`;
+                        outputSummary = `Calculated conversion estimates: expected open rate ${results.predicted_outcomes?.open_rate}%, projected revenue ${formatCurrency(results.predicted_outcomes?.projected_revenue || 0)} (expected ROI: ${results.predicted_outcomes?.estimated_roi}%).`;
                       }
                     }
                     
@@ -702,7 +704,7 @@ export default function CampaignStudioPage() {
                   </div>
                   <div className="p-3.5 bg-[var(--bg-overlay)]/60 border border-[var(--border)] rounded-xl text-center shadow-inner">
                     <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Projected Sales Value</p>
-                    <p className="text-2xl font-black text-emerald-655 mt-1">${results.predicted_outcomes.projected_revenue?.toLocaleString()}</p>
+                    <p className="text-2xl font-black text-emerald-655 mt-1">{formatCurrency(results.predicted_outcomes.projected_revenue || 0)}</p>
                   </div>
                 </div>
                 {[
