@@ -1,11 +1,22 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
+from supabase import create_client, Client
 from backend.config import settings
 
+# ── Supabase REST client (used for simple CRUD over HTTPS port 443) ──────────
+_supabase_client: Client = None
+
+def get_supabase() -> Client:
+    global _supabase_client
+    if _supabase_client is None:
+        _supabase_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+    return _supabase_client
+
+# ── psycopg2 direct connection (used for complex SQL / pgvector queries) ──────
 @contextmanager
 def get_db_connection():
-    """Create a direct connection per request — compatible with PgBouncer (port 6543)."""
+    """Create a direct psycopg2 connection per request."""
     conn = psycopg2.connect(dsn=settings.DATABASE_URL, cursor_factory=RealDictCursor)
     try:
         yield conn
