@@ -30,7 +30,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://catalyst-crmai.vercel.app",
+        "https://catalyst-crmagent.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
