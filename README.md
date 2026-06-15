@@ -13,28 +13,29 @@ The primary goal of Catalyst is to simplify and enhance customer engagement by p
 
 Catalyst empowers marketers to make informed decisions, improve customer relationships, and drive business growth through intelligent engagement strategies.
 ```
-```What Catalyst Does
-Customer Understanding
+```
+What Catalyst Does
+**Customer Understanding**
 
 Catalyst provides a unified view of customer information, purchase behavior, and engagement history, helping businesses better understand their audience.
 
-Audience Discovery
+**Audience Discovery**
 
 The platform identifies customer groups based on behavior, activity, and purchasing patterns, enabling marketers to target the most relevant audiences.
 
-Personalized Communication
+**Personalized Communication**
 
 Catalyst helps create tailored marketing messages that resonate with specific customer segments and improve engagement rates.
 
-Multi-Channel Campaign Management
+**Multi-Channel Campaign Management**
 
 Businesses can engage shoppers across multiple communication channels, ensuring consistent and effective outreach.
 
-Performance Monitoring
+**Performance Monitoring**
 
 The platform tracks campaign performance and customer interactions, providing visibility into engagement outcomes and business impact.
 
-Actionable Insights
+**Actionable Insights**
 
 Catalyst generates insights and recommendations that help marketers continuously optimize their campaigns and customer engagement strategies.
 ```
