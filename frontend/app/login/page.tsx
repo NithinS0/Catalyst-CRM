@@ -22,9 +22,6 @@ export default function LoginPage() {
     if (newMode === 'register') {
       setEmail('');
       setPassword('');
-    } else {
-      setEmail('member@catalyst.ai');
-      setPassword('password123');
     }
   };
 
