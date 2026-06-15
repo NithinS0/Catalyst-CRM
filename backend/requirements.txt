@@ -11,3 +11,4 @@ psycopg2-binary
 pgvector
 openai
 python-multipart
+email-validator
