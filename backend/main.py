@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.api import customers, campaigns, agents, webhooks, analytics, health
+from backend.api import customers, campaigns, agents, webhooks, analytics, health, auth
 from backend.config import settings
 
 # ── LangSmith Observability ──────────────────────────────────────────────────
@@ -46,6 +46,7 @@ app.include_router(agents.router)
 app.include_router(webhooks.router)
 app.include_router(analytics.router)
 app.include_router(health.router)
+app.include_router(auth.router)
 
 @app.get("/")
 def read_root():

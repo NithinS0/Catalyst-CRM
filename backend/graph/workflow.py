@@ -76,7 +76,7 @@ try:
     campaign_builder = StateGraph(CampaignStudioState)
 
     campaign_builder.add_node("supervisor", supervisor_node)
-    campaign_builder.add_node("customer_intelligence", customer_intelligence_node)
+    campaign_builder.add_node("customer_intelligence_node", customer_intelligence_node)
     campaign_builder.add_node("segmentation", segmentation_node)
     campaign_builder.add_node("content", content_node)
     campaign_builder.add_node("channel", channel_node)
@@ -92,7 +92,7 @@ try:
         "supervisor",
         route_next,
         {
-            "customer_intelligence": "customer_intelligence",
+            "customer_intelligence": "customer_intelligence_node",
             "segmentation": "segmentation",
             "content": "content",
             "channel": "channel",
@@ -105,7 +105,7 @@ try:
         },
     )
 
-    campaign_builder.add_edge("customer_intelligence", "supervisor")
+    campaign_builder.add_edge("customer_intelligence_node", "supervisor")
     campaign_builder.add_edge("segmentation", "supervisor")
     campaign_builder.add_edge("content", "supervisor")
     campaign_builder.add_edge("channel", "supervisor")

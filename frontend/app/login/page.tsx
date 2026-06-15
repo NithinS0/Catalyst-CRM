@@ -2,22 +2,75 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, ArrowRight, Lock, Mail, Bot } from 'lucide-react';
+import { Sparkles, ArrowRight, Lock, Mail, Bot, User } from 'lucide-react';
+import { api } from '@/services/api';
 
 export default function LoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('member@catalyst.ai');
   const [password, setPassword] = useState('password123');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleModeChange = (newMode: 'login' | 'register') => {
+    setMode(newMode);
+    setError(null);
+    setSuccess(null);
+    if (newMode === 'register') {
+      setEmail('');
+      setPassword('');
+    } else {
+      setEmail('member@catalyst.ai');
+      setPassword('password123');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      localStorage.setItem('catalyst_user', JSON.stringify({ email, role: 'admin' }));
-      router.push('/dashboard');
-    }, 1000);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      if (mode === 'login') {
+        const data = await api.login(email, password);
+        localStorage.setItem('catalyst_user', JSON.stringify({
+          email: data.user.email,
+          name: data.user.name,
+          role: data.user.role,
+          token: data.session.access_token,
+        }));
+        router.push('/dashboard');
+      } else {
+        if (!name.trim()) {
+          setError('Name is required');
+          setLoading(false);
+          return;
+        }
+        await api.register(name, email, password);
+        setSuccess('Registration successful! Authenticating...');
+        
+        // Auto-login after registration
+        const loginData = await api.login(email, password);
+        localStorage.setItem('catalyst_user', JSON.stringify({
+          email: loginData.user.email,
+          name: loginData.user.name,
+          role: loginData.user.role,
+          token: loginData.session.access_token,
+        }));
+
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 800);
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Authentication failed. Please check your inputs and try again.';
+      setError(errMsg);
+      setLoading(false);
+    }
   };
 
   return (
@@ -27,24 +80,82 @@ export default function LoginPage() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-500/5 blur-[120px] animate-pulse-glow" style={{ animationDelay: '2s' }} />
 
       {/* Left Column - Form */}
-      <div className="w-full lg:w-[45%] flex flex-col justify-between p-8 lg:p-16 z-10 bg-white">
+      <div className="w-full lg:w-[45%] flex flex-col justify-between p-8 lg:p-16 z-10 bg-white shadow-xl">
         <div />
 
         <div className="max-w-md w-full mx-auto my-auto py-12">
-          <div className="flex justify-center mb-4">
-            <img src="/logo.png" alt="Catalyst" className="h-48 w-auto object-contain" />
+          <div className="flex justify-center mb-6">
+            <img src="/logo.png" alt="Catalyst" className="h-28 w-auto object-contain" />
+          </div>
+
+          {/* Tab Switcher */}
+          <div className="flex border-b border-[var(--border)] mb-8 bg-zinc-50 p-1.5 rounded-xl">
+            <button
+              type="button"
+              onClick={() => handleModeChange('login')}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 ${
+                mode === 'login'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-zinc-400 hover:text-zinc-600'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => handleModeChange('register')}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 ${
+                mode === 'register'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-zinc-400 hover:text-zinc-600'
+              }`}
+            >
+              Register
+            </button>
           </div>
 
           <div className="space-y-2 mb-8">
             <h1 className="text-3xl font-extrabold tracking-tight text-[var(--text-primary)]">
-              Welcome back
+              {mode === 'login' ? 'Welcome back' : 'Create account'}
             </h1>
             <p className="text-zinc-500 text-sm">
-              Log in to access your AI-powered workspace and automation engine.
+              {mode === 'login' 
+                ? 'Log in to access your AI-powered workspace and automation engine.'
+                : 'Register to set up your AI-native CRM and workspace.'}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <div className="bg-red-50 text-red-600 text-xs rounded-xl p-3 border border-red-100 font-medium">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="bg-emerald-50 text-emerald-600 text-xs rounded-xl p-3 border border-emerald-100 font-medium">
+                {success}
+              </div>
+            )}
+
+            {mode === 'register' && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Full Name</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                    <User className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-white border border-[var(--border)] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 rounded-xl py-3 pl-10 pr-4 text-sm text-[var(--text-primary)] placeholder-zinc-400 focus:outline-none transition-all duration-200"
+                    placeholder="John Doe"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Email Address</label>
               <div className="relative">
@@ -88,7 +199,7 @@ export default function LoginPage() {
                 <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
               ) : (
                 <>
-                  Enter Dashboard
+                  {mode === 'login' ? 'Enter Dashboard' : 'Create Account'}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
