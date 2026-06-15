@@ -33,14 +33,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(customers.router, prefix="/api")
-app.include_router(customers.segments_router, prefix="/api")
-app.include_router(campaigns.router, prefix="/api")
-app.include_router(agents.router, prefix="/api")
-app.include_router(webhooks.router, prefix="/api")
-app.include_router(analytics.router, prefix="/api")
-app.include_router(health.router, prefix="/api")
+# Include routers (each router already has /api prefix defined internally)
+app.include_router(customers.router)
+app.include_router(customers.segments_router)
+app.include_router(campaigns.router)
+app.include_router(agents.router)
+app.include_router(webhooks.router)
+app.include_router(analytics.router)
+app.include_router(health.router)
 
 @app.get("/")
 def read_root():
