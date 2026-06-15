@@ -3,7 +3,7 @@ import openai
 from typing import Dict, Any
 from backend.config import settings
 from backend.database.repositories.memory_repository import MemoryRepository
-from backend.database.supabase import execute_query
+from backend.database.supabase import execute_query, get_supabase
 from backend.utils.llm import call_llm_for_campaign
 from backend.agents.content_personalization.generator import package_message_variants
 
@@ -65,9 +65,9 @@ def run_copywriter(state: dict) -> dict:
     prompt_query = messages[-1]["content"] if messages else "re-engagement loyalty outreach"
     
     if not customer_id:
-        res = execute_query("SELECT id FROM public.customers LIMIT 1;")
-        if res:
-            customer_id = str(res[0]["id"])
+        res = get_supabase().table("customers").select("id").limit(1).execute()
+        if res.data:
+            customer_id = str(res.data[0]["id"])
             logs.append(f"[Copywriter] No customer_id context. Auto-resolved to customer: {customer_id}")
         else:
             state["action_logs"] = logs
@@ -75,13 +75,13 @@ def run_copywriter(state: dict) -> dict:
             return state
 
     # 1. Fetch customer details
-    cust_res = execute_query("SELECT * FROM public.customers WHERE id = %s;", (customer_id,))
-    if not cust_res:
+    cust_res = get_supabase().table("customers").select("*").eq("id", customer_id).single().execute()
+    if not cust_res.data:
         logs.append(f"[Copywriter] Customer {customer_id} not found.")
         state["action_logs"] = logs
         state["next_node"] = "end"
         return state
-    customer = cust_res[0]
+    customer = cust_res.data
     
     # 2. RAG MEMORY RETRIEVAL (Query pgvector collections)
     try:
@@ -110,12 +110,9 @@ def run_copywriter(state: dict) -> dict:
     # Fallback to general interaction history if no semantic customer memory found
     if not customer_context:
         logs.append("[Copywriter] No specific customer memory found. Querying general timeline history...")
-        gen_ints = execute_query(
-            "SELECT summary FROM public.interactions WHERE customer_id = %s ORDER BY created_at DESC LIMIT 2;",
-            (customer_id,)
-        )
-        if gen_ints:
-            customer_context = "\n".join([f"- {i['summary']}" for i in gen_ints])
+        gen_ints = get_supabase().table("interactions").select("summary").eq("customer_id", customer_id).order("created_at", desc=True).limit(2).execute()
+        if gen_ints.data:
+            customer_context = "\n".join([f"- {i['summary']}" for i in gen_ints.data])
     else:
         logs.append(f"[Copywriter] Retrieved {len(customer_memories)} semantic Customer Memory notes.")
         
