@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    ports:
+      - "54322:5432"
+    environment:
+      POSTGRES_DB: supabase_local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d supabase_local" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/supabase_local
+      - REDIS_URL=redis://redis:6379/0
+      - SUPABASE_URL=http://mock-supabase.local
+      - SUPABASE_SERVICE_KEY=mock-key
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-mock-key}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+
+  channel-service:
+    build: ./channel-service
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/supabase_local
+      - REDIS_URL=redis://redis:6379/0
+      - BACKEND_API_URL=http://backend:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./channel-service:/app
+
+volumes:
+  pgdata:
+  redisdata:

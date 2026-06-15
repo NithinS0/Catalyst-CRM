@@ -1,0 +1,38 @@
+from typing import Dict, Any
+
+def create_initial_state(marketing_goal: str) -> Dict[str, Any]:
+    return {
+        "marketing_goal": marketing_goal,
+        "action_logs": ["[System] Initializing 10-Agent Catalyst graph orchestrator..."],
+        "current_agent": "supervisor",
+        "customer_intelligence": None,
+        "generated_segment_rules": None,
+        "generated_segment_name": None,
+        "generated_segment_description": None,
+        "audience_size": 0,
+        "expected_impact": None,
+        "target_customers": None,
+        "campaign_message": None,
+        "content_variants": None,
+        "personalization_explanation": None,
+        "recommended_channel": None,
+        "channel_confidence": None,
+        "channel_scores": None,
+        "predicted_outcomes": None,
+        "roi_score": None,
+        "is_roi_approved": False,
+        "revision_count": 0,
+        "campaign_id": None,
+        "communication_count": 0,
+        "execution_status": None,
+        "callback_events_processed": 0,
+        "analytics_metrics": None,
+        "analytics_insights": None,
+        "analytics_summary": None,
+        "degraded_mode": False,
+        "failed_agents": [],
+        "fallback_actions": [],
+        "next_node": "customer_intelligence",
+        "retry_count": 0,
+        "current_attempt": 1
+    }
