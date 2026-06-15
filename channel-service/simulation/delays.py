@@ -11,4 +11,5 @@ def wait_simulation_delay(min_delay: float = 0.5, max_delay: float = 1.5):
     """
     Suspends execution for a random delay duration.
     """
-    time.sleep(get_simulation_delay(min_delay, max_delay))
+    # Set sleep to 0 to make email and message delivery happen in real-time
+    time.sleep(0)
