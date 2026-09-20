@@ -255,14 +255,6 @@ def run_campaign_execution_workflow(campaign_id: str) -> dict:
     initial_state["is_roi_approved"] = True
     initial_state["next_node"] = "execution"
 
-    if _LANGGRAPH_AVAILABLE and campaign_studio_graph is not None:
-        try:
-            res = campaign_studio_graph.invoke(initial_state)
-            return res
-        except Exception as e:
-            print(f"[Catalyst] LangGraph execution error: {e}. Running fallback.")
-
-    # Fallback: sequential
     state = initial_state.copy()
     for step in ("execution", "analytics"):
         try:

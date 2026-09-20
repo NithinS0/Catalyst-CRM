@@ -1,10 +1,15 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from backend.graph.workflow import run_agent_workflow
 from backend.services.campaign_service import CampaignService
+from backend.utils.auth import has_permission, Permission
 
-router = APIRouter(prefix="/api/agents", tags=["agents"])
+router = APIRouter(
+    prefix="/api/agents", 
+    tags=["agents"],
+    dependencies=[Depends(has_permission(Permission.USE_AI_STUDIO))]
+)
 
 class AgentChatRequest(BaseModel):
     prompt: str

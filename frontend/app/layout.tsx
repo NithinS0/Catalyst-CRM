@@ -16,11 +16,23 @@ export const metadata: Metadata = {
   title: "Catalyst — AI-Native Enterprise CRM",
   description:
     "Next-generation enterprise CRM powered by LangGraph agents, pgvector RAG memory, and real-time omnichannel orchestration.",
-  keywords: ["CRM", "AI", "LangGraph", "enterprise", "campaign automation"],
+  keywords: ["CRM", "AI", "LangGraph", "enterprise", "campaign automation", "marketing automation"],
+  alternates: {
+    canonical: "https://catalystcrm.ai/",
+  },
   openGraph: {
-    title: "Catalyst AI-Native CRM",
-    description: "AI-powered CRM with multi-agent orchestration",
+    title: "Catalyst — AI-Native Enterprise CRM",
+    description: "Next-generation enterprise CRM powered by LangGraph agents and pgvector memory.",
+    url: "https://catalystcrm.ai/",
+    siteName: "Catalyst CRM",
+    locale: "en_US",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Catalyst — AI-Native Enterprise CRM",
+    description: "Next-generation enterprise CRM powered by LangGraph agents.",
+    creator: "@catalystcrm",
   },
 };
 

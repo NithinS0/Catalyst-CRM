@@ -1,6 +1,7 @@
 langgraph
 langchain-core
 langchain-groq
+langchain-openai
 langsmith
 fastapi
 uvicorn
@@ -12,3 +13,4 @@ pgvector
 openai
 python-multipart
 email-validator
+httpx

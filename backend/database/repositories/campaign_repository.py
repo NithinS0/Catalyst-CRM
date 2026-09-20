@@ -28,11 +28,32 @@ class CampaignRepository:
         return CampaignRepository.get_by_id(campaign_id)
 
     @staticmethod
-    def create(name, description, type_str, segment_id, content_template, status="draft") -> Dict[str, Any]:
-        res = get_supabase().table("campaigns").insert({
-            "name": name, "description": description, "type": type_str,
-            "segment_id": segment_id, "content_template": content_template, "status": status
-        }).execute()
+    def create(
+        name: str,
+        description: Optional[str],
+        type_str: str,
+        segment_id: Optional[str],
+        content_template: str,
+        status: str = "draft",
+        subject: Optional[str] = None,
+        sender_name: Optional[str] = None,
+        sender_email: Optional[str] = None,
+        reply_to: Optional[str] = None
+    ) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "name": name,
+            "description": description,
+            "type": type_str,
+            "target_channel": type_str,
+            "segment_id": segment_id,
+            "content_template": content_template,
+            "status": status,
+            "subject": subject or name,
+            "sender_name": sender_name,
+            "sender_email": sender_email,
+            "reply_to": reply_to
+        }
+        res = get_supabase().table("campaigns").insert(payload).execute()
         return res.data[0] if res.data else {}
 
     @staticmethod
@@ -61,7 +82,7 @@ class CampaignRepository:
 
     @staticmethod
     def get_communication_by_id(comm_id: str) -> Optional[Dict[str, Any]]:
-        res = get_supabase().table("communications").select("status, customer_id, campaign_id").eq("id", comm_id).single().execute()
+        res = get_supabase().table("communications").select("status, customer_id, campaign_id, company_id").eq("id", comm_id).single().execute()
         return res.data if res.data else None
 
     @staticmethod

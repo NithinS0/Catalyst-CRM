@@ -16,26 +16,67 @@ import {
   IndianRupee,
   DollarSign,
   ChevronDown,
+  Settings as SettingsIcon,
+  Shield,
+  Building,
+  Search,
+  Cpu,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCurrency } from '@/context/currency-context';
+import { api } from '@/services/api';
+import NotificationCenter from './notification-center';
+
+interface NavbarProps {
+  onOpenCommandPalette?: () => void;
+}
 
 const menuItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'AI Studio', href: '/campaign-studio', icon: Sparkles, highlight: true },
+  { name: 'Campaigns', href: '/campaigns', icon: Megaphone },
   { name: 'Customers', href: '/customers', icon: Users },
   { name: 'Segments', href: '/segments', icon: Layers },
-  { name: 'Campaigns', href: '/campaigns', icon: Megaphone },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'AI Campaign Studio', href: '/ai-studio', icon: Sparkles, highlight: true },
+  { name: 'Agent Swarm', href: '/agent-monitor', icon: Cpu },
+  { name: 'Settings', href: '/settings', icon: SettingsIcon },
 ];
 
-export default function Navbar() {
+export default function Navbar({ onOpenCommandPalette }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<{ email?: string } | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { currency, setCurrency } = useCurrency();
   const [currencyOpen, setCurrencyOpen] = useState(false);
+
+  // Super Admin workspace switching states
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [selectedCompanyOverride, setSelectedCompanyOverride] = useState<string | null>(null);
+  const [overrideName, setOverrideName] = useState<string | null>(null);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+
+  const getActiveCompanyDetails = () => {
+    if (selectedCompanyOverride) {
+      const activeComp = companies.find(c => c.id === selectedCompanyOverride);
+      if (activeComp) {
+        return {
+          name: activeComp.name,
+          logo_url: activeComp.logo_url
+        };
+      }
+      return {
+        name: overrideName || 'Selected Workspace',
+        logo_url: undefined
+      };
+    }
+    return user?.company ? {
+      name: user.company.name,
+      logo_url: user.company.logo_url
+    } : null;
+  };
+
+  const activeCompany = getActiveCompanyDetails();
 
   useEffect(() => {
     try {
@@ -44,245 +85,387 @@ export default function Navbar() {
     } catch { /* ignore */ }
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setSelectedCompanyOverride(localStorage.getItem('catalyst_override_company'));
+      setOverrideName(localStorage.getItem('catalyst_override_company_name'));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user?.role === 'super_admin' && user?.token) {
+      api.superGetCompanies().then(setCompanies).catch(console.error);
+    }
+  }, [user]);
+
+  const handleSwitchCompany = (companyId: string | null) => {
+    if (companyId === null) {
+      localStorage.removeItem('catalyst_override_company');
+      localStorage.removeItem('catalyst_override_company_name');
+    } else {
+      localStorage.setItem('catalyst_override_company', companyId);
+      const comp = companies.find(c => c.id === companyId);
+      if (comp) {
+        localStorage.setItem('catalyst_override_company_name', comp.name);
+      }
+    }
+    window.location.reload();
+  };
+
   const handleLogout = () => {
+    document.cookie = 'catalyst_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+    document.cookie = 'catalyst_role=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
     localStorage.removeItem('catalyst_user');
     router.push('/login');
   };
 
+  const role = (user?.role || 'owner').toUpperCase();
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[var(--border)] bg-[var(--bg-surface)]/80 backdrop-blur-md shrink-0">
-      <div className="px-4 sm:px-6 lg:px-8 h-16 md:h-[68px] flex items-center justify-between">
-        {/* Left section: Logo + Badge */}
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="flex items-center">
-            <img 
-              src="/logo.png" 
-              alt="Catalyst Logo" 
-              className="h-10 md:h-12 w-auto object-contain transition-all duration-150" 
-            />
-          </Link>
-          <span className="text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded bg-indigo-50/80 text-indigo-600 border border-indigo-100 select-none shrink-0">
-            v1.0
+    <>
+      {/* ─── Super Admin Workspace Banner ─── */}
+      {selectedCompanyOverride && (
+        <div className="w-full text-white text-xs font-mono py-2 px-4 flex items-center justify-between relative z-50 shrink-0 select-none"
+          style={{ background: 'linear-gradient(90deg, #5660F3, #0B85FC)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <span className="flex items-center gap-2">
+            <Shield className="w-3.5 h-3.5 text-white/80" />
+            <span>Workspace View: <strong className="underline underline-offset-2">{overrideName || 'Workspace'}</strong> — Super Admin Simulation</span>
           </span>
-        </div>
-
-        {/* Middle section: Navigation Links */}
-        <nav className="hidden md:flex items-center gap-1 lg:gap-2">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`
-                  flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all duration-150 text-sm font-medium
-                  ${isActive
-                    ? item.highlight
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/15'
-                      : 'bg-[var(--bg-overlay)] text-[var(--text-primary)] font-semibold'
-                    : item.highlight
-                      ? 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 font-semibold'
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-overlay)] hover:text-[var(--text-primary)]'
-                  }
-                `}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Right section: AI Status + User profile */}
-        <div className="flex items-center gap-4">
-          {/* AI Agent Status */}
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--bg-overlay)] border border-[var(--border)] text-xs">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="text-zinc-400 font-medium select-none">AI Status:</span>
-            <span className="font-semibold text-[var(--text-primary)]">Online</span>
-          </div>
-
-          {/* Currency Switcher Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setCurrencyOpen(!currencyOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--bg-overlay)] border border-[var(--border)] text-xs font-semibold text-[var(--text-primary)] hover:border-zinc-350 transition-all cursor-pointer select-none"
-            >
-              {currency === 'INR' ? (
-                <span className="flex items-center gap-1 text-emerald-600">
-                  <IndianRupee className="w-3.5 h-3.5" />
-                  <span>INR</span>
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-indigo-600">
-                  <DollarSign className="w-3.5 h-3.5" />
-                  <span>USD</span>
-                </span>
-              )}
-              <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-150 ${currencyOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            <AnimatePresence>
-              {currencyOpen && (
-                <>
-                  {/* Backdrop to close */}
-                  <div className="fixed inset-0 z-30" onClick={() => setCurrencyOpen(false)} />
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 8 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 mt-1.5 w-32 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] shadow-xl p-1 z-40"
-                  >
-                    <button
-                      onClick={() => {
-                        setCurrency('INR');
-                        setCurrencyOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-xs rounded-lg transition-colors cursor-pointer ${
-                        currency === 'INR'
-                          ? 'bg-indigo-50 text-indigo-600 font-semibold'
-                          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-overlay)] hover:text-[var(--text-primary)]'
-                      }`}
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <IndianRupee className="w-3.5 h-3.5 shrink-0" />
-                        <span>INR (₹)</span>
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCurrency('USD');
-                        setCurrencyOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-xs rounded-lg transition-colors cursor-pointer ${
-                        currency === 'USD'
-                          ? 'bg-indigo-50 text-indigo-600 font-semibold'
-                          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-overlay)] hover:text-[var(--text-primary)]'
-                      }`}
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <DollarSign className="w-3.5 h-3.5 shrink-0" />
-                        <span>USD ($)</span>
-                      </span>
-                    </button>
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* User Profile */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold select-none shrink-0">
-              CA
-            </div>
-            <div className="hidden sm:block text-left min-w-0">
-              <p className="text-xs font-semibold text-[var(--text-primary)] truncate leading-tight">Catalyst Admin</p>
-              <p className="text-[10px] text-zinc-400 truncate leading-none mt-0.5">{user?.email || 'member@catalyst.ai'}</p>
-            </div>
-            <button
-              onClick={handleLogout}
-              title="Sign Out"
-              className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer shrink-0 ml-2"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Mobile menu button */}
           <button
-            className="md:hidden p-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] cursor-pointer"
-            onClick={() => setMobileOpen(!mobileOpen)}
+            onClick={() => handleSwitchCompany(null)}
+            className="bg-white/15 hover:bg-white/25 text-white font-mono text-[10px] px-2.5 py-1 rounded border border-white/25 transition-all cursor-pointer"
           >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            Exit Workspace Mode
           </button>
         </div>
-      </div>
+      )}
 
-      {/* Mobile menu overlay & sidebar */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <div className="md:hidden fixed inset-0 z-50 flex">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-zinc-900/45 backdrop-blur-sm"
-              onClick={() => setMobileOpen(false)}
-            />
-            {/* Sidebar container */}
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="relative w-72 max-w-xs h-full bg-[var(--bg-surface)] border-r border-[var(--border)] shadow-2xl flex flex-col z-10"
-            >
-              {/* Header */}
-              <div className="p-4 flex items-center justify-between border-b border-[var(--border)] shrink-0 h-16">
-                <img src="/logo.png" alt="Catalyst" className="h-8 w-auto" />
-                <button onClick={() => setMobileOpen(false)} className="p-1.5 text-zinc-400 hover:bg-zinc-100 rounded-lg">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              {/* Nav Links */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-1.5 scrollbar-thin">
-                {menuItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className={`
-                        flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all duration-150 text-sm font-medium
-                        ${isActive
-                          ? item.highlight
-                            ? 'bg-indigo-600 text-white shadow-md'
-                            : 'bg-[var(--bg-overlay)] text-[var(--text-primary)] font-semibold'
-                          : item.highlight
-                            ? 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 font-semibold'
-                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-overlay)] hover:text-[var(--text-primary)]'
-                        }
-                      `}
-                    >
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <span>{item.name}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-              {/* User profile inside sidebar at the bottom */}
-              <div className="p-4 border-t border-[var(--border)] bg-[var(--bg-overlay)]/40 space-y-3 shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold select-none shrink-0">
-                    CA
-                  </div>
-                  <div className="text-left min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-[var(--text-primary)] truncate leading-tight">Catalyst Admin</p>
-                    <p className="text-[10px] text-zinc-400 truncate leading-none mt-1">{user?.email || 'member@catalyst.ai'}</p>
-                  </div>
-                </div>
+      {/* ─── Main App Header ─── */}
+      <header className="sticky top-0 z-40 w-full shrink-0"
+        style={{
+          background: 'rgba(14, 20, 31, 0.95)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(255,255,255,0.07)'
+        }}>
+        <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+
+          {/* ─── Left: Logo + Workspace ─── */}
+          <div className="flex items-center gap-3 shrink-0">
+            <Link href="/dashboard" className="flex items-center gap-2 group">
+              <img
+                src="/crmlogo.png"
+                alt="Catalyst"
+                className="h-8 w-auto object-contain shrink-0"
+              />
+              <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded"
+                style={{ background: 'rgba(11,133,252,0.15)', color: '#0DB8FA', border: '1px solid rgba(11,133,252,0.25)' }}>
+                V2
+              </span>
+              {activeCompany?.name && (
+                <span className="text-[10px] font-mono truncate max-w-[120px] hidden md:inline" style={{ color: '#AAB3C2' }}>
+                  · {activeCompany.name}
+                </span>
+              )}
+            </Link>
+
+            {/* Role Badge */}
+            <span className="hidden sm:inline-flex items-center text-[10px] font-mono uppercase px-2 py-0.5 rounded"
+              style={{ background: 'rgba(86,96,243,0.12)', color: '#8B96FF', border: '1px solid rgba(86,96,243,0.25)' }}>
+              {role}
+            </span>
+
+            {/* Super Admin Workspace Switcher */}
+            {user?.role === 'super_admin' && (
+              <div className="relative pl-2 hidden xl:block" style={{ borderLeft: '1px solid rgba(255,255,255,0.07)' }}>
                 <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-semibold text-red-655 bg-red-50 hover:bg-red-100/70 border border-red-100 rounded-xl transition-all duration-150 cursor-pointer"
+                  onClick={() => setWorkspaceOpen(!workspaceOpen)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.10)',
+                    color: '#AAB3C2'
+                  }}
                 >
-                  <LogOut className="w-3.5 h-3.5" />
-                  Sign Out
+                  <span className="truncate max-w-[100px]">{selectedCompanyOverride ? activeCompany?.name : 'All Workspaces'}</span>
+                  <ChevronDown className={`w-3 h-3 text-[#AAB3C2] transition-transform ${workspaceOpen ? 'rotate-180' : ''}`} />
                 </button>
+
+                <AnimatePresence>
+                  {workspaceOpen && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setWorkspaceOpen(false)} />
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        className="absolute left-0 mt-2 w-56 rounded-xl shadow-2xl p-1 z-40 max-h-60 overflow-y-auto"
+                        style={{ background: '#1E222B', border: '1px solid rgba(255,255,255,0.10)' }}
+                      >
+                        <button
+                          onClick={() => { handleSwitchCompany(null); setWorkspaceOpen(false); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-mono rounded-lg transition-colors"
+                          style={{ color: '#AAB3C2' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <Shield className="w-3.5 h-3.5" />
+                          <span>Global Workspace</span>
+                        </button>
+                        <div className="my-1" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} />
+                        {companies.map((comp) => (
+                          <button
+                            key={comp.id}
+                            onClick={() => { handleSwitchCompany(comp.id); setWorkspaceOpen(false); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-mono rounded-lg transition-colors"
+                            style={{ color: '#AAB3C2' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <Building className="w-3.5 h-3.5" />
+                            <span className="truncate">{comp.name}</span>
+                          </button>
+                        ))}
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </div>
-            </motion.div>
+            )}
           </div>
-        )}
-      </AnimatePresence>
-    </header>
+
+          {/* ─── Center Navigation ─── */}
+          <nav className="hidden lg:flex items-center gap-1">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href || (item.href === '/campaign-studio' && pathname === '/ai-studio');
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium font-mono transition-all"
+                  style={
+                    isActive
+                      ? { background: 'linear-gradient(135deg, #0B85FC, #0DB8FA)', color: '#FFFFFF', fontWeight: '600' }
+                      : item.highlight
+                        ? { background: 'rgba(86,96,243,0.12)', color: '#8B96FF', border: '1px solid rgba(86,96,243,0.25)' }
+                        : { color: '#AAB3C2' }
+                  }
+                  onMouseEnter={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                      e.currentTarget.style.color = '#FFFFFF';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = item.highlight ? 'rgba(86,96,243,0.12)' : 'transparent';
+                      e.currentTarget.style.color = item.highlight ? '#8B96FF' : '#AAB3C2';
+                    }
+                  }}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* ─── Right: Search, AI Status, Notifications, Currency, Profile ─── */}
+          <div className="flex items-center gap-2.5 shrink-0">
+
+            {/* Global Search */}
+            <button
+              onClick={onOpenCommandPalette}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: '#AAB3C2' }}
+              title="Global Search & Commands (⌘K / Ctrl+K)"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span className="hidden md:inline text-[11px]">Search</span>
+              <kbd className="hidden md:inline-block px-1.5 py-0.5 rounded text-[10px]"
+                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)', color: '#7A8494' }}>
+                ⌘K
+              </kbd>
+            </button>
+
+            {/* AI Agent Swarm Status */}
+            <div className="hidden xl:flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-mono"
+              style={{ background: 'rgba(11,133,252,0.08)', border: '1px solid rgba(11,133,252,0.20)' }}>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                  style={{ background: '#0DB8FA' }} />
+                <span className="relative inline-flex rounded-full h-2 w-2"
+                  style={{ background: '#0B85FC' }} />
+              </span>
+              <span style={{ color: '#AAB3C2' }}>10 Agents:</span>
+              <span className="font-semibold" style={{ color: '#0DB8FA' }}>Active</span>
+            </div>
+
+            {/* Notification Center */}
+            <NotificationCenter />
+
+            {/* Currency Switcher */}
+            <div className="relative">
+              <button
+                onClick={() => setCurrencyOpen(!currencyOpen)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium transition-all cursor-pointer"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: '#D4DAE6' }}
+              >
+                {currency === 'INR' ? (
+                  <span className="flex items-center gap-1"><IndianRupee className="w-3 h-3" /><span>INR</span></span>
+                ) : (
+                  <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" /><span>USD</span></span>
+                )}
+                <ChevronDown className={`w-3 h-3 ml-0.5 transition-transform ${currencyOpen ? 'rotate-180' : ''}`} style={{ color: '#7A8494' }} />
+              </button>
+
+              <AnimatePresence>
+                {currencyOpen && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setCurrencyOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 6 }}
+                      className="absolute right-0 mt-1.5 w-28 rounded-xl shadow-2xl p-1 z-40 font-mono"
+                      style={{ background: '#1E222B', border: '1px solid rgba(255,255,255,0.10)' }}
+                    >
+                      {(['INR', 'USD'] as const).map(cur => (
+                        <button
+                          key={cur}
+                          onClick={() => { setCurrency(cur); setCurrencyOpen(false); }}
+                          className="w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-lg transition-all"
+                          style={
+                            currency === cur
+                              ? { background: 'rgba(11,133,252,0.15)', color: '#0B85FC', fontWeight: '600' }
+                              : { color: '#AAB3C2' }
+                          }
+                          onMouseEnter={e => { if (currency !== cur) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                          onMouseLeave={e => { if (currency !== cur) e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          <span className="flex items-center gap-1">
+                            {cur === 'INR' ? <IndianRupee className="w-3 h-3" /> : <DollarSign className="w-3 h-3" />}
+                            {cur === 'INR' ? 'INR (₹)' : 'USD ($)'}
+                          </span>
+                        </button>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* User Profile & Logout */}
+            <div className="flex items-center gap-2 pl-2" style={{ borderLeft: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-mono font-bold select-none"
+                style={{ background: 'linear-gradient(135deg, #5660F3, #6B5CF6)' }}>
+                {user?.name ? user.name.slice(0, 2).toUpperCase() : 'CA'}
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Sign Out of Catalyst"
+                className="p-1.5 rounded-lg transition-all cursor-pointer"
+                style={{ color: '#7A8494' }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#FFFFFF'; e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
+                onMouseLeave={e => { e.currentTarget.style.color = '#7A8494'; e.currentTarget.style.background = 'transparent'; }}
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Mobile menu button */}
+            <button
+              className="lg:hidden p-2 rounded-lg cursor-pointer transition-all"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: '#D4DAE6' }}
+              onClick={() => setMobileOpen(!mobileOpen)}
+            >
+              {mobileOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        {/* ─── Mobile Navigation Drawer ─── */}
+        <AnimatePresence>
+          {mobileOpen && (
+            <div className="lg:hidden fixed inset-0 z-50 flex">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 backdrop-blur-sm"
+                style={{ background: 'rgba(14,20,31,0.80)' }}
+                onClick={() => setMobileOpen(false)}
+              />
+              <motion.div
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                className="relative w-72 max-w-xs h-full shadow-2xl flex flex-col z-10 p-4"
+                style={{ background: '#1E222B', borderRight: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                <div className="flex items-center justify-between pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div className="flex items-center gap-2">
+                    <img src="/crmlogo.png" alt="Catalyst" className="h-7 w-auto object-contain" />
+                    <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded"
+                      style={{ background: 'rgba(11,133,252,0.15)', color: '#0DB8FA', border: '1px solid rgba(11,133,252,0.25)' }}>
+                      V2
+                    </span>
+                  </div>
+                  <button onClick={() => setMobileOpen(false)} className="p-1 transition-colors" style={{ color: '#7A8494' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#FFFFFF')}
+                    onMouseLeave={e => (e.currentTarget.style.color = '#7A8494')}>
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto py-4 space-y-1">
+                  {menuItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = pathname === item.href;
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-mono transition-all"
+                        style={
+                          isActive
+                            ? { background: 'linear-gradient(135deg, #0B85FC, #0DB8FA)', color: '#FFFFFF', fontWeight: '600' }
+                            : { color: '#AAB3C2' }
+                        }
+                      >
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-4 space-y-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded flex items-center justify-center font-mono text-xs font-bold text-white"
+                      style={{ background: 'linear-gradient(135deg, #5660F3, #6B5CF6)' }}>
+                      {user?.name ? user.name.slice(0, 2).toUpperCase() : 'CA'}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-mono text-white truncate">{user?.name || 'Workspace User'}</p>
+                      <p className="text-[10px] font-mono truncate" style={{ color: '#AAB3C2' }}>{user?.email}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full py-2 px-3 text-xs font-mono rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    style={{ background: 'rgba(239,68,68,0.10)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.20)' }}
+                  >
+                    <LogOut className="w-3.5 h-3.5" /> Sign Out
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+      </header>
+    </>
   );
 }

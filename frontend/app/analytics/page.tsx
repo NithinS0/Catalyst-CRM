@@ -5,54 +5,14 @@ import LayoutWrapper from '@/components/layout-wrapper';
 import { api } from '@/services/api';
 import {
   TrendingUp, Mail, Sparkles, ArrowUpRight, CheckCircle, DollarSign,
-  AlertTriangle, Lightbulb, Radio, Clock, Layers, RefreshCw, IndianRupee
+  AlertTriangle, Lightbulb, Radio, Clock, Layers, RefreshCw, IndianRupee,
+  Activity, BarChart3
 } from 'lucide-react';
 import { useCurrency } from '@/context/currency-context';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import { motion } from 'framer-motion';
-import { SkeletonCard } from '@/components/ui/skeleton';
-
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.07 } },
-};
-const item: any = {
-  hidden: { opacity: 0, y: 14 },
-  show:  { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 26 } },
-};
-
-const EVENT_COLORS: Record<string, string> = {
-  sent:      'text-indigo-650',
-  delivered: 'text-blue-600',
-  opened:    'text-emerald-650',
-  read:      'text-teal-600',
-  clicked:   'text-amber-600',
-  converted: 'text-pink-600',
-  failed:    'text-red-600',
-};
-
-const EVENT_BADGES: Record<string, string> = {
-  sent:      'bg-indigo-50 text-indigo-600 border border-indigo-100',
-  delivered: 'bg-blue-50 text-blue-600 border border-blue-100',
-  opened:    'bg-emerald-50 text-emerald-600 border border-emerald-100',
-  read:      'bg-teal-50 text-teal-600 border border-teal-100',
-  clicked:   'bg-amber-50 text-amber-600 border border-amber-100',
-  converted: 'bg-pink-50 text-pink-600 border border-pink-100',
-  failed:    'bg-red-50 text-red-650 border border-red-100',
-};
-
-const EVENT_TRANSLATIONS: Record<string, string> = {
-  sent:      'Sent',
-  delivered: 'Delivered',
-  opened:    'Opened',
-  read:      'Read',
-  clicked:   'Clicked',
-  converted: 'Finished',
-  failed:    'Failed',
-};
 
 function formatTime(iso: string) {
   try {
@@ -76,8 +36,11 @@ export default function AnalyticsPage() {
     try {
       const data = await api.getAnalyticsStats() as any;
       setStats(data);
-    } catch (err) { console.error('Analytics stats error:', err); }
-    finally { setLoading(false); }
+    } catch (err) {
+      console.error('Analytics stats error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchSummary = async () => {
@@ -85,8 +48,11 @@ export default function AnalyticsPage() {
       setSummaryLoading(true);
       const data = await api.getAnalyticsSummary() as any;
       setSummary(data);
-    } catch (err) { console.error('Analytics summary error:', err); }
-    finally { setSummaryLoading(false); }
+    } catch (err) {
+      console.error('Analytics summary error:', err);
+    } finally {
+      setSummaryLoading(false);
+    }
   };
 
   const fetchEvents = async () => {
@@ -94,8 +60,11 @@ export default function AnalyticsPage() {
       setEventsLoading(true);
       const data = await api.getRealtimeEvents(25) as any[];
       setEvents(Array.isArray(data) ? data : []);
-    } catch (err) { console.error('Events error:', err); }
-    finally { setEventsLoading(false); }
+    } catch (err) {
+      console.error('Events error:', err);
+    } finally {
+      setEventsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -108,224 +77,241 @@ export default function AnalyticsPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchStats(), fetchEvents()]);
+    await Promise.all([fetchStats(), fetchEvents(), fetchSummary()]);
     setRefreshing(false);
   };
 
   const kpiCards = stats ? [
-    { label: 'Total Messages Sent', value: stats.sent || 0,      icon: Mail,         color: 'text-indigo-650', bg: 'bg-indigo-50 border-indigo-100 shadow-sm' },
-    { label: 'Read',               value: stats.opened || 0,    icon: CheckCircle,  color: 'text-emerald-650',bg: 'bg-emerald-50 border-emerald-100 shadow-sm' },
-    { label: 'Clicked Link',       value: stats.clicked || 0,   icon: ArrowUpRight, color: 'text-amber-600',  bg: 'bg-amber-50 border-amber-100 shadow-sm' },
-    { label: 'Actions Completed',  value: stats.converted || 0, icon: TrendingUp,   color: 'text-pink-600',   bg: 'bg-pink-50 border-pink-100 shadow-sm' },
-    { label: 'Estimated Earnings', value: formatCurrency(stats.revenue || 0), icon: currency === 'INR' ? IndianRupee : DollarSign, color: 'text-emerald-650', bg: 'bg-emerald-50 border-emerald-100 shadow-sm' },
-    { label: 'Message Campaigns',  value: stats.campaigns_count || 0, icon: Layers,  color: 'text-violet-650', bg: 'bg-violet-50 border-violet-100 shadow-sm' },
+    { label: 'Dispatched',    value: stats.sent || 0,             icon: Mail       },
+    { label: 'Opened',        value: stats.opened || 0,           icon: CheckCircle },
+    { label: 'Clicked',       value: stats.clicked || 0,          icon: ArrowUpRight },
+    { label: 'Converted',     value: stats.converted || 0,        icon: TrendingUp  },
+    { label: 'Attributed Rev',value: formatCurrency(stats.revenue || 0), icon: currency === 'INR' ? IndianRupee : DollarSign },
+    { label: 'Campaigns',     value: stats.campaigns_count || 0,  icon: Layers      },
   ] : [];
 
-  const openRate = stats && stats.sent > 0 ? ((stats.opened / stats.sent) * 100).toFixed(1) : '0.0';
-  const clickRate = stats && stats.opened > 0 ? ((stats.clicked / stats.opened) * 100).toFixed(1) : '0.0';
-  const convRate = stats && stats.clicked > 0 ? ((stats.converted / stats.clicked) * 100).toFixed(1) : '0.0';
+  const openRate  = stats && stats.sent    > 0 ? ((stats.opened    / stats.sent)    * 100).toFixed(1) : '0.0';
+  const clickRate = stats && stats.opened  > 0 ? ((stats.clicked   / stats.opened)  * 100).toFixed(1) : '0.0';
+  const convRate  = stats && stats.clicked > 0 ? ((stats.converted / stats.clicked) * 100).toFixed(1) : '0.0';
 
   return (
     <LayoutWrapper>
-      <motion.div variants={container} initial="hidden" animate="show" className="space-y-7 pb-8 text-[var(--text-primary)]">
+      <div className="space-y-8 pb-10 font-mono">
 
         {/* Header */}
-        <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-[var(--text-primary)]">Performance Reports</h1>
-            <p className="text-zinc-500 text-sm mt-1">Detailed charts and AI analysis of how your sent messages are performing.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-xl relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #0E141F 0%, #1E222B 50%, #2F3654 100%)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-mono mb-1"
+              style={{ background: 'rgba(13,184,250,0.10)', border: '1px solid rgba(13,184,250,0.22)', color: '#0DB8FA' }}>
+              <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#0DB8FA', boxShadow: '0 0 6px rgba(13,184,250,0.7)' }} />
+              Live Analytics Pipeline
+            </div>
+            <h1 className="text-2xl font-bold text-white">Performance & Deliverability Analytics</h1>
+            <p className="text-xs" style={{ color: '#AAB3C2' }}>
+              End-to-end attribution, engagement velocity, and event-stream telemetry scoped to your workspace.
+            </p>
           </div>
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="btn btn-secondary self-start sm:self-auto py-2.5 px-4 rounded-xl"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer self-start sm:self-auto"
+            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#AAB3C2' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(11,133,252,0.10)'; e.currentTarget.style.color = '#0B85FC'; e.currentTarget.style.borderColor = 'rgba(11,133,252,0.25)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = '#AAB3C2'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; }}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            <span>Sync Metrics</span>
           </button>
-        </motion.div>
+        </div>
 
-        {/* KPI Cards */}
-        <motion.div variants={item} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
-          {loading
-            ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
-            : kpiCards.map((k, i) => {
-                const Icon = k.icon;
-                return (
-                  <motion.div
-                    key={i}
-                    whileHover={{ y: -3 }}
-                    className={`card border ${k.bg} text-center p-4`}
-                  >
-                    <Icon className={`w-5 h-5 ${k.color} mx-auto mb-2`} />
-                    <p className="text-2xl font-black text-[var(--text-primary)]">{k.value}</p>
-                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mt-1">{k.label}</p>
-                  </motion.div>
-                );
-              })}
-        </motion.div>
+        {/* KPI Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+          {loading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-28 rounded-xl animate-pulse" style={{ background: '#1E222B', border: '1px solid rgba(255,255,255,0.06)' }} />
+            ))
+          ) : (
+            kpiCards.map((k, i) => {
+              const Icon = k.icon;
+              return (
+                <div key={i} className="p-4 rounded-xl text-center space-y-1 transition-all"
+                  style={{ background: '#1E222B', border: '1px solid rgba(255,255,255,0.08)' }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(11,133,252,0.30)')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}>
+                  <Icon className="w-4 h-4 mx-auto mb-1" style={{ color: '#0B85FC' }} />
+                  <p className="text-xl font-bold text-white">{k.value}</p>
+                  <p className="text-[10px] uppercase" style={{ color: '#5F6878' }}>{k.label}</p>
+                </div>
+              );
+            })
+          )}
+        </div>
 
-        {/* Rate Cards */}
-        <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Funnel Conversion Rates */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
-            { label: 'Read Rate',  value: `${openRate}%`,  desc: 'Sent → Read',   color: 'text-emerald-650' },
-            { label: 'Link Click Rate', value: `${clickRate}%`, desc: 'Read → Clicked Link', color: 'text-amber-600' },
-            { label: 'Action Completion Rate', value: `${convRate}%`,  desc: 'Clicked Link → Action Completed', color: 'text-pink-600' },
-          ].map((r, i) => (
-            <div key={i} className="card glass text-center border border-[var(--border)] shadow-sm">
-              <p className={`text-3xl font-black ${r.color}`}>{r.value}</p>
-              <p className="text-xs font-bold text-zinc-550 mt-1">{r.label}</p>
-              <p className="text-[10px] text-zinc-400 mt-0.5">{r.desc}</p>
+            { label: 'Open / Read Rate',       value: openRate,   sub: 'Delivered → Opened',   color: '#0B85FC' },
+            { label: 'Click-Through Rate',     value: clickRate,  sub: 'Opened → Link Tapped',  color: '#0DB8FA' },
+            { label: 'Action Completion Rate', value: convRate,   sub: 'Clicked → Converted',   color: '#5660F3' },
+          ].map(({ label, value, sub, color }) => (
+            <div key={label} className="p-5 rounded-xl text-center space-y-1"
+              style={{ background: '#1E222B', border: `1px solid ${color}22` }}>
+              <p className="text-3xl font-bold" style={{ color }}>{value}%</p>
+              <p className="text-xs font-semibold" style={{ color: '#F7F9FC' }}>{label}</p>
+              <p className="text-[10px]" style={{ color: '#5F6878' }}>{sub}</p>
             </div>
           ))}
-        </motion.div>
+        </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
           {/* Daily Performance */}
-          <motion.div variants={item} className="card glass border border-[var(--border)] shadow-sm">
-            <h3 className="font-bold text-[var(--text-primary)] text-sm mb-5">Daily message activity over 7 days</h3>
-            <div className="h-56">
+          <div className="p-6 rounded-xl space-y-4" style={{ background: '#1E222B', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white">7-Day Engagement Velocity</h3>
+              <span className="text-[10px] uppercase" style={{ color: '#5F6878' }}>Deliverability Curve</span>
+            </div>
+            <div className="h-60">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={stats?.daily_performance || []} margin={{ left: -25, bottom: 0 }}>
+                <AreaChart data={stats?.daily_performance || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="sentG" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#4f46e5" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
+                    <linearGradient id="blueGradA" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#0B85FC" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#0B85FC" stopOpacity={0}    />
                     </linearGradient>
-                    <linearGradient id="openG" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#0ea5e9" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                    <linearGradient id="cyanGradA" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#0DB8FA" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#0DB8FA" stopOpacity={0}    />
                     </linearGradient>
-                    <linearGradient id="clickG" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#8b5cf6" stopOpacity={0.12} />
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                    <linearGradient id="indigoGradA" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#5660F3" stopOpacity={0.12} />
+                      <stop offset="95%" stopColor="#5660F3" stopOpacity={0}    />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.02)" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 12, color: '#0f172a' }} cursor={{ stroke: 'rgba(0,0,0,0.04)' }} />
-                  <Area type="monotone" dataKey="sent"    name="Sent"    stroke="#4f46e5" strokeWidth={2.5} fill="url(#sentG)"  dot={false} />
-                  <Area type="monotone" dataKey="opened"  name="Read"  stroke="#0ea5e9" strokeWidth={2.5} fill="url(#openG)"  dot={false} />
-                  <Area type="monotone" dataKey="clicked" name="Clicked Link" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#clickG)" dot={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fill: '#5F6878', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#5F6878', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: '#0E141F', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 8, fontSize: 11, fontFamily: 'monospace', color: '#F7F9FC' }} itemStyle={{ color: '#AAB3C2' }} />
+                  <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'monospace', color: '#AAB3C2' }} />
+                  <Area type="monotone" dataKey="sent"    name="Sent"    stroke="#0B85FC" strokeWidth={2}   fill="url(#blueGradA)"   dot={false} />
+                  <Area type="monotone" dataKey="opened"  name="Opened"  stroke="#0DB8FA" strokeWidth={1.5} strokeDasharray="3 3" fill="url(#cyanGradA)"   dot={false} />
+                  <Area type="monotone" dataKey="clicked" name="Clicked" stroke="#5660F3" strokeWidth={1.5} fill="url(#indigoGradA)" dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </motion.div>
+          </div>
 
           {/* Channel Comparison */}
-          <motion.div variants={item} className="card glass border border-[var(--border)] shadow-sm">
-            <h3 className="font-bold text-[var(--text-primary)] text-sm mb-5">Channel Comparison</h3>
-            <div className="h-56">
+          <div className="p-6 rounded-xl space-y-4" style={{ background: '#1E222B', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white">Channel Deliverability Breakdown</h3>
+              <span className="text-[10px] uppercase" style={{ color: '#5F6878' }}>Distribution</span>
+            </div>
+            <div className="h-60">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats?.channel_comparison || []} margin={{ left: -22, bottom: 0 }} barSize={16} barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.02)" vertical={false} />
-                  <XAxis dataKey="channel" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 12, color: '#0f172a' }} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
-                  <Legend wrapperStyle={{ fontSize: 10, color: '#475569' }} />
-                  <Bar dataKey="sent"    name="Sent"    fill="#4f46e5" radius={[4,4,0,0]} />
-                  <Bar dataKey="opened"  name="Read"  fill="#0ea5e9" radius={[4,4,0,0]} />
-                  <Bar dataKey="clicked" name="Clicked Link" fill="#8b5cf6" radius={[4,4,0,0]} />
+                <BarChart data={stats?.channel_comparison || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <XAxis dataKey="channel" tick={{ fill: '#5F6878', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#5F6878', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: '#0E141F', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 8, fontSize: 11, fontFamily: 'monospace', color: '#F7F9FC' }} itemStyle={{ color: '#AAB3C2' }} />
+                  <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'monospace', color: '#AAB3C2' }} />
+                  <Bar dataKey="sent"    name="Sent"    fill="#0B85FC" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="opened"  name="Opened"  fill="#0DB8FA" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="clicked" name="Clicked" fill="#5660F3" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </motion.div>
+          </div>
+
         </div>
 
-        {/* AI Summary + Realtime Events */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        {/* AI Performance Evaluation & Live Realtime Event Stream */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
-          {/* AI Summary */}
-          <motion.div variants={item} className="card glass glass-glow border border-[var(--border)] shadow-sm">
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
-              <div className="p-2.5 rounded-xl bg-violet-50 border border-violet-100">
-                <Sparkles className="w-4 h-4 text-violet-650" />
+          {/* AI Report */}
+          <div className="p-6 rounded-xl space-y-4" style={{ background: '#1E222B', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4" style={{ color: '#6B5CF6' }} />
+                <h3 className="text-sm font-bold text-white">AI Performance Synthesis</h3>
               </div>
-              <h3 className="font-bold text-[var(--text-primary)] text-sm">AI Performance Report</h3>
-              {summaryLoading && <div className="w-3 h-3 rounded-full border border-indigo-600 border-t-transparent animate-spin ml-auto" />}
+              {summaryLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin" style={{ color: '#5F6878' }} />}
             </div>
+
             {summaryLoading ? (
               <div className="space-y-3">
-                {[1,2,3].map(i => <div key={i} className="skeleton skeleton-card h-16" />)}
+                {[1, 2, 3].map(i => <div key={i} className="h-16 rounded animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />)}
               </div>
             ) : summary ? (
-              <div className="space-y-3">
-                {[
-                  { key: 'worked',      label: 'Success Points',  icon: CheckCircle, color: 'text-emerald-650', bg: 'bg-emerald-50 border-emerald-100' },
-                  { key: 'failed',      label: 'Areas to Improve',icon: AlertTriangle,color: 'text-amber-600',  bg: 'bg-amber-50 border-amber-100'   },
-                  { key: 'next_action', label: 'AI Suggestions',  icon: Lightbulb,   color: 'text-indigo-650', bg: 'bg-indigo-50 border-indigo-100'  },
-                ].map(({ key, label, icon: Icon, color, bg }) => (
-                  <div key={key} className={`p-4 rounded-2xl border ${bg} flex gap-3.5`}>
-                    <Icon className={`w-4 h-4 ${color} shrink-0 mt-0.5`} />
-                    <div>
-                      <p className={`text-[10px] font-bold uppercase tracking-wider ${color} mb-1`}>{label}</p>
-                      <p className="text-xs text-zinc-600 leading-normal">{summary[key]}</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="space-y-3 text-xs">
+                <div className="p-3.5 rounded-lg space-y-1" style={{ background: 'rgba(11,133,252,0.06)', border: '1px solid rgba(11,133,252,0.15)' }}>
+                  <p className="text-[10px] uppercase font-bold" style={{ color: '#0B85FC' }}>High-Performing Vectors</p>
+                  <p className="leading-relaxed" style={{ color: '#AAB3C2' }}>{summary.worked}</p>
+                </div>
+                <div className="p-3.5 rounded-lg space-y-1" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.14)' }}>
+                  <p className="text-[10px] uppercase font-bold" style={{ color: '#EF4444' }}>Optimization Targets</p>
+                  <p className="leading-relaxed" style={{ color: '#AAB3C2' }}>{summary.failed}</p>
+                </div>
+                <div className="p-3.5 rounded-lg space-y-1" style={{ background: 'rgba(86,96,243,0.08)', border: '1px solid rgba(86,96,243,0.18)' }}>
+                  <p className="text-[10px] uppercase font-bold" style={{ color: '#5660F3' }}>Recommended Campaign Step</p>
+                  <p className="leading-relaxed" style={{ color: '#AAB3C2' }}>{summary.next_action}</p>
+                </div>
               </div>
             ) : (
-              <p className="text-sm text-zinc-500 text-center py-6">AI report details are currently loading.</p>
+              <p className="text-xs text-center py-6" style={{ color: '#5F6878' }}>Telemetry data aggregating...</p>
             )}
-          </motion.div>
+          </div>
 
-          {/* Realtime Events */}
-          <motion.div variants={item} className="card glass-darker flex flex-col border border-[var(--border)] shadow-sm">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[var(--border)]">
-              <div className="flex items-center gap-2">
-                <Radio className="w-4 h-4 text-emerald-600 animate-pulse" />
-                <h3 className="font-bold text-[var(--text-primary)] text-sm">Live Event Feed</h3>
+          {/* Realtime Event Stream */}
+          <div className="p-6 rounded-xl space-y-4 flex flex-col justify-between" style={{ background: '#1E222B', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div>
+              <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                <div className="flex items-center gap-2">
+                  <Radio className="w-4 h-4 animate-pulse" style={{ color: '#0DB8FA' }} />
+                  <h3 className="text-sm font-bold text-white">Real-Time Dispatch Feed</h3>
+                </div>
+                <span className="text-[10px]" style={{ color: '#5F6878' }}>Polling active (15s)</span>
               </div>
-              <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Auto-updating every 15 seconds
-              </div>
+
+              {eventsLoading && events.length === 0 ? (
+                <div className="py-8 text-center text-xs" style={{ color: '#5F6878' }}>
+                  <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-2" />
+                  Loading realtime event feed...
+                </div>
+              ) : events.length === 0 ? (
+                <div className="py-10 text-center text-xs" style={{ color: '#5F6878' }}>
+                  No delivery events logged yet in this workspace.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pt-2">
+                  {events.map((ev: any, i: number) => (
+                    <div key={ev.id || i} className="p-2.5 rounded flex items-center justify-between text-[11px]"
+                      style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(47,54,84,0.40)' }}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[10px] shrink-0" style={{ color: '#5F6878' }}>{formatTime(ev.created_at)}</span>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] uppercase font-bold shrink-0"
+                          style={{ background: 'rgba(13,184,250,0.12)', color: '#0DB8FA' }}>
+                          {ev.event_type}
+                        </span>
+                        <span className="truncate" style={{ color: '#AAB3C2' }}>{ev.recipient_name || ev.recipient_email || 'Recipient'}</span>
+                      </div>
+                      <span className="text-[10px] shrink-0" style={{ color: '#5F6878' }}>{ev.channel || 'email'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {eventsLoading ? (
-              <div className="space-y-2.5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex gap-3 items-center py-1">
-                    <div className="skeleton w-14 h-4 rounded" />
-                    <div className="skeleton w-16 h-4 rounded-full" />
-                    <div className="skeleton flex-1 h-4 rounded" />
-                  </div>
-                ))}
-              </div>
-            ) : events.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center py-8">
-                <p className="text-xs text-zinc-500 text-center">No outreach events generated yet.<br />Trigger a message campaign to see live updates.</p>
-              </div>
-            ) : (
-              <div className="flex-1 space-y-1.5 overflow-y-auto scroll-area max-h-72 font-mono text-[10.5px]">
-                {events.map((ev: any, i: number) => (
-                  <motion.div
-                    key={ev.id || i}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.025 }}
-                    className="flex items-center gap-2.5 py-2 border-b border-[var(--border)] last:border-0"
-                  >
-                    <span className="text-zinc-500 shrink-0 flex items-center gap-1 font-semibold">
-                      <Clock className="w-2.5 h-2.5 text-zinc-400" />
-                      {formatTime(ev.created_at)}
-                    </span>
-                    <span className={`badge text-[9px] shrink-0 ${EVENT_BADGES[ev.event_type] || 'bg-zinc-100 text-zinc-500'}`}>
-                      {EVENT_TRANSLATIONS[ev.event_type] || ev.event_type}
-                    </span>
-                    <span className="text-zinc-650 truncate">
-                      {ev.recipient_name || ev.recipient_email} · {ev.subject || ev.channel}
-                    </span>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </motion.div>
+            <div className="pt-2 text-[10px] text-center" style={{ borderTop: '1px solid rgba(255,255,255,0.07)', color: '#5F6878' }}>
+              All events verified and mapped to workspace company_id
+            </div>
+          </div>
+
         </div>
 
-      </motion.div>
+      </div>
     </LayoutWrapper>
   );
 }

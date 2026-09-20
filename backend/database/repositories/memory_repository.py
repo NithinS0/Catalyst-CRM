@@ -47,17 +47,19 @@ class MemoryRepository:
     ) -> Dict[str, Any]:
         """Stores a document using pgvector. Falls back silently if unavailable."""
         try:
+            from backend.utils.tenant import get_current_company_id
+            company_id = get_current_company_id()
             embedding = get_embedding(content)
             meta = metadata.copy() if metadata else {}
             meta["collection"] = collection
             meta_json = json.dumps(meta)
             title = meta.get("title") or f"{collection} Document"
             query = """
-                INSERT INTO public.memory_documents (customer_id, title, content, embedding, metadata)
-                VALUES (%s, %s, %s, %s::vector, %s)
+                INSERT INTO public.memory_documents (customer_id, title, content, embedding, metadata, company_id)
+                VALUES (%s, %s, %s, %s::vector, %s, %s)
                 RETURNING id, customer_id, title, content, metadata, created_at;
             """
-            return execute_insert(query, (customer_id, title, content, embedding, meta_json))
+            return execute_insert(query, (customer_id, title, content, embedding, meta_json, company_id))
         except Exception as e:
             print(f"[MemoryRepository] store_document failed (pgvector): {e}")
             return {}
@@ -70,24 +72,26 @@ class MemoryRepository:
     ) -> List[Dict[str, Any]]:
         """Retrieves documents from memory_documents by collection. Falls back to empty list."""
         try:
+            from backend.utils.tenant import get_current_company_id
+            company_id = get_current_company_id()
             if customer_id:
                 query = """
                     SELECT id, customer_id, title, content, metadata, created_at
                     FROM public.memory_documents
-                    WHERE (metadata->>'collection') = %s AND customer_id = %s
+                    WHERE (metadata->>'collection') = %s AND customer_id = %s AND (company_id = %s OR company_id IS NULL)
                     ORDER BY created_at DESC
                     LIMIT %s;
                 """
-                params = (collection, customer_id, limit)
+                params = (collection, customer_id, company_id, limit)
             else:
                 query = """
                     SELECT id, customer_id, title, content, metadata, created_at
                     FROM public.memory_documents
-                    WHERE (metadata->>'collection') = %s
+                    WHERE (metadata->>'collection') = %s AND (company_id = %s OR company_id IS NULL)
                     ORDER BY created_at DESC
                     LIMIT %s;
                 """
-                params = (collection, limit)
+                params = (collection, company_id, limit)
             rows = execute_query(query, params)
             return [dict(row) for row in rows] if rows else []
         except Exception as e:
@@ -103,27 +107,29 @@ class MemoryRepository:
     ) -> List[Dict[str, Any]]:
         """Cosine-distance similarity search using pgvector. Falls back to empty list."""
         try:
+            from backend.utils.tenant import get_current_company_id
+            company_id = get_current_company_id()
             query_vector = get_embedding(query)
             if customer_id:
                 sql = """
                     SELECT id, customer_id, title, content, metadata, created_at,
                            (embedding <=> %s::vector) as distance
                     FROM public.memory_documents
-                    WHERE (metadata->>'collection') = %s AND (customer_id = %s OR customer_id IS NULL)
+                    WHERE (metadata->>'collection') = %s AND (customer_id = %s OR customer_id IS NULL) AND (company_id = %s OR company_id IS NULL)
                     ORDER BY distance ASC
                     LIMIT %s;
                 """
-                params = (query_vector, collection, customer_id, limit)
+                params = (query_vector, collection, customer_id, company_id, limit)
             else:
                 sql = """
                     SELECT id, customer_id, title, content, metadata, created_at,
                            (embedding <=> %s::vector) as distance
                     FROM public.memory_documents
-                    WHERE (metadata->>'collection') = %s
+                    WHERE (metadata->>'collection') = %s AND (company_id = %s OR company_id IS NULL)
                     ORDER BY distance ASC
                     LIMIT %s;
                 """
-                params = (query_vector, collection, limit)
+                params = (query_vector, collection, company_id, limit)
             rows = execute_query(sql, params)
             return [dict(row) for row in rows] if rows else []
         except Exception as e:

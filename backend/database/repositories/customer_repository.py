@@ -9,8 +9,11 @@ class CustomerRepository:
 
     @staticmethod
     def get_by_id(customer_id: str) -> Optional[Dict[str, Any]]:
-        res = get_supabase().table("customers").select("*").eq("id", customer_id).single().execute()
-        return res.data if res.data else None
+        try:
+            res = get_supabase().table("customers").select("*").eq("id", customer_id).limit(1).execute()
+            return res.data[0] if (res and res.data) else None
+        except Exception:
+            return None
 
     @staticmethod
     def create(first_name, last_name, email, phone, company, status, lead_score, custom_attributes) -> Dict[str, Any]:

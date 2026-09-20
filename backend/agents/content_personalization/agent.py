@@ -10,24 +10,49 @@ from backend.agents.content_personalization.generator import package_message_var
 def run_content_personalization(state: Dict[str, Any]) -> Dict[str, Any]:
     state["current_agent"] = "content"
     logs = state.get("action_logs", [])
-    logs.append("[Content Agent] Compiling personalization variants using RAG memory guidelines...")
+    logs.append("[Content Agent] Compiling personalization variants using company branding identity and RAG memory...")
     
     try:
-        # 1. Query pgvector RAG memory system via Repository
+        # 1. Load company branding settings
+        from backend.utils.tenant import get_current_company_id
+        company_id = get_current_company_id() or state.get("company_id") or "c1111111-1111-1111-1111-111111111111"
+        comp_branding = {}
+        try:
+            comp_res = get_supabase().table("companies").select("*").eq("id", company_id).single().execute()
+            if comp_res.data:
+                comp_branding = comp_res.data
+        except Exception as e:
+            logs.append(f"[Content Agent] Warning: Could not retrieve company branding from database: {e}")
+
+        b_name = comp_branding.get("name", "Catalyst CRM")
+        b_voice = comp_branding.get("brand_voice", "Professional, helpful, and concise")
+        b_footer = comp_branding.get("email_footer", "")
+        b_tone = comp_branding.get("campaign_tone", "Professional")
+
+        logs.append(f"[Content Agent] Loaded brand identity: Name='{b_name}', Tone='{b_tone}', Voice='{b_voice}'")
+
+        # 2. Query pgvector RAG memory system via Repository
         brand_guides = MemoryRepository.semantic_search(collection="Brand Memory", query=state["marketing_goal"], limit=1)
         campaign_mem = MemoryRepository.semantic_search(collection="Campaign Memory", query=state["marketing_goal"], limit=1)
         
-        brand_txt = brand_guides[0]["content"] if brand_guides else "Tone: Professional, warm."
+        brand_txt = brand_guides[0]["content"] if brand_guides else f"Tone: {b_tone}. Style: {b_voice}."
         camp_txt = campaign_mem[0]["content"] if campaign_mem else "History: High conversion on email CTAs."
         
-        logs.append("[Content Agent] Retrieved brand guidelines and historical campaign performance from RAG.")
+        logs.append("[Content Agent] Retrieved additional historical campaign guidelines from RAG.")
         
-        # 2. Call LLM to draft copy incorporating RAG details
+        # 3. Call LLM to draft copy incorporating branding and RAG details
         feedback = None
         if not state.get("is_roi_approved") and state.get("revision_count", 0) > 0:
             feedback = "Revision loop: previous predicted ROI was below 150%. Please optimize template hooks to boost clicks."
             
-        data = call_llm_for_campaign(state["marketing_goal"], feedback)
+        data = call_llm_for_campaign(
+            state["marketing_goal"], 
+            feedback,
+            brand_name=b_name,
+            brand_voice=b_voice,
+            email_footer=b_footer,
+            campaign_tone=b_tone
+        )
         subject = data.get("subject", "Catalyst outreach")
         vA = data.get("variant_a", "")
         vB = data.get("variant_b", "")
@@ -83,6 +108,22 @@ def run_copywriter(state: dict) -> dict:
         return state
     customer = cust_res.data
     
+    # 1b. Fetch company branding settings
+    from backend.utils.tenant import get_current_company_id
+    company_id = customer.get("company_id") or get_current_company_id()
+    comp_branding = {}
+    if company_id:
+        try:
+            comp_res = get_supabase().table("companies").select("*").eq("id", company_id).single().execute()
+            if comp_res.data:
+                comp_branding = comp_res.data
+        except Exception:
+            pass
+    b_name = comp_branding.get("name", "Catalyst CRM")
+    b_voice = comp_branding.get("brand_voice", "Professional, helpful, and concise")
+    b_footer = comp_branding.get("email_footer", "")
+    b_tone = comp_branding.get("campaign_tone", "Professional")
+
     # 2. RAG MEMORY RETRIEVAL (Query pgvector collections)
     try:
         MemoryRepository.seed_default_memories()
@@ -119,7 +160,11 @@ def run_copywriter(state: dict) -> dict:
     # Build complete memory context
     memory_context = f"""
 Brand Guidelines:
-{brand_context or "- Default to B2B SaaS warm and professional tone."}
+- Company/Brand Name: {b_name}
+- Brand Voice Guideline: {b_voice}
+- Campaign Tone: {b_tone}
+- Email Footer Signature: {b_footer}
+{brand_context}
 
 Campaign History:
 {campaign_context or "- No similar campaign history found."}
@@ -132,6 +177,8 @@ Customer History:
     prompt = f"""
     You are an expert copywriter for Catalyst CRM. Draft a highly personalized email for the following customer.
     Use the provided Brand Guidelines, Campaign History, and Customer History to write the most cohesive and tailored message.
+    Apply the Brand Voice Guideline ("{b_voice}") and Campaign Tone ("{b_tone}") strictly.
+    Sign off with the Brand Name ("{b_name}") and include the required Email Footer Signature ("{b_footer}") at the bottom of the email.
     Do not mention "RAG context" or "database" in the email. Just natural follow-up points.
 
     Customer Information:
@@ -149,12 +196,12 @@ Customer History:
     Respond with a JSON object:
     {{
       "subject": "<compelling subject line>",
-      "body": "<professional email body, using paragraphs or line breaks. Keep it short and engaging>"
+      "body": "<professional email body, using paragraphs or line breaks. Keep it short and engaging, ending with the required footer signature>"
     }}
     """
     
-    subject = "Outreach from Catalyst"
-    body = f"Hello {customer['first_name']},\n\nWe wanted to follow up and see how we can assist you at {customer['company'] or 'your firm'}.\n\nBest,\nCatalyst Team"
+    subject = f"Outreach from {b_name}"
+    body = f"Hello {customer['first_name']},\n\nWe wanted to follow up and see how we can assist you at {customer['company'] or 'your firm'}.\n\nBest,\n{b_name} Team\n\n{b_footer}"
 
     from backend.utils.llm import is_llm_enabled, get_llm_client_and_model
 
@@ -164,7 +211,7 @@ Customer History:
             kwargs = {
                 "model": model,
                 "messages": [
-                    {"role": "system", "content": "You are a professional B2B SaaS copywriter. Output strictly JSON."},
+                    {"role": "system", "content": f"You are a professional B2B SaaS copywriter for {b_name}. Output strictly JSON."},
                     {"role": "user", "content": prompt}
                 ]
             }
@@ -178,10 +225,10 @@ Customer History:
             logs.append("[Copywriter] Personal copy drafted successfully using LLM.")
         except Exception as e:
             logs.append(f"[Copywriter] LLM call failed: {e}. Using rule fallback.")
-            subject, body = _fallback_copy(customer, prompt_query, memory_context)
+            subject, body = _fallback_copy(customer, prompt_query, b_name, b_footer)
     else:
         logs.append("[Copywriter] LLM engine key missing or mock. Generating copy from fallback rule engine.")
-        subject, body = _fallback_copy(customer, prompt_query, memory_context)
+        subject, body = _fallback_copy(customer, prompt_query, b_name, b_footer)
 
     # Store draft in state
     draft_str = f"Subject: {subject}\n\n{body}"
@@ -190,21 +237,22 @@ Customer History:
     state["next_node"] = "end"
     return state
 
-def _fallback_copy(customer: dict, theme: str, context: str) -> tuple:
+def _fallback_copy(customer: dict, theme: str, brand_name: str, email_footer: str) -> tuple:
     """
     Mock copywriter template generation based on customer facts.
     """
     first_name = customer["first_name"]
     company = customer["company"] or "your company"
+    footer_text = f"\n\n{email_footer}" if email_footer else f"\n\nBest,\n{brand_name} Team"
     
     if "billing" in theme.lower() or "refund" in theme.lower() or "double charge" in theme.lower() or "unhappy" in theme.lower() or "churn" in theme.lower():
         subject = f"Resolving your recent issues at {company}"
-        body = f"Hi {first_name},\n\nI wanted to reach out regarding the billing issues and support delays you experienced recently. I know it can be frustrating, and we are working hard to resolve this.\n\nTo make things right, I'd like to credit 20% back to your account. Let me know if you would be open to a quick call to ensure we meet your expectations.\n\nBest regards,\nCatalyst Customer Success Team"
+        body = f"Hi {first_name},\n\nI wanted to reach out regarding the billing issues and support delays you experienced recently. I know it can be frustrating, and we are working hard to resolve this.\n\nTo make things right, I'd like to credit 20% back to your account. Let me know if you would be open to a quick call to ensure we meet your expectations.{footer_text}"
     elif "pricing" in theme.lower() or "custom integration" in theme.lower() or "demo" in theme.lower() or "pilot" in theme.lower():
-        subject = f"Next steps for {company} & Catalyst CRM"
-        body = f"Hi {first_name},\n\nFollowing up on our recent conversation about custom integrations and enterprise pricing SLA. I wanted to see if you had any questions on the developer APIs we sent over.\n\nWould you be open to a short 10-minute slot next Tuesday to review the pilot agreement?\n\nBest,\nCatalyst Sales Team"
+        subject = f"Next steps for {company} & {brand_name}"
+        body = f"Hi {first_name},\n\nFollowing up on our recent conversation about custom integrations and enterprise pricing SLA. I wanted to see if you had any questions on the developer APIs we sent over.\n\nWould you be open to a short 10-minute slot next Tuesday to review the pilot agreement?{footer_text}"
     else:
         subject = f"Special partnership proposal for {company}"
-        body = f"Hi {first_name},\n\nWe've been tracking {company}'s development and we see tremendous synergy in launching a personalized campaign. I would love to show you how our AI studio is helping other firms in the industry.\n\nAre you free for a brief demo this week?\n\nWarmly,\nThe Catalyst Team"
+        body = f"Hi {first_name},\n\nWe've been tracking {company}'s development and we see tremendous synergy in launching a personalized campaign. I would love to show you how our AI studio is helping other firms in the industry.\n\nAre you free for a brief demo this week?{footer_text}"
         
     return subject, body

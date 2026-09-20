@@ -1,4 +1,4 @@
-import { request } from './api';
+import { request } from './client';
 
 export const customerService = {
   getCustomers: () => request('/api/customers'),
@@ -22,4 +22,8 @@ export const customerService = {
   evaluateSegment: (segmentId: string) => request(`/api/segments/${segmentId}/evaluate`),
   deleteSegment: (segmentId: string) =>
     request(`/api/segments/${segmentId}`, { method: 'DELETE' }),
+  getDigitalTwin: (customerId: string) =>
+    request(`/api/customers/${customerId}/digital-twin`),
+  generateDigitalTwin: (customerId: string) =>
+    request(`/api/customers/${customerId}/digital-twin`, { method: 'POST' }),
 };

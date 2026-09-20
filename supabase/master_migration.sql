@@ -11,6 +11,9 @@
 \ir migrations/008_memory_documents.sql
 \ir migrations/009_indexes.sql
 \ir migrations/010_rls.sql
+\ir migrations/012_multi_tenant.sql
+\ir migrations/013_rbac_roles.sql
+\ir migrations/018_production_hardening.sql
 
 -- Optional seed data
 -- \ir migrations/011_seed_data.sql

@@ -3,32 +3,27 @@
 import { useEffect, useState } from 'react';
 import LayoutWrapper from '@/components/layout-wrapper';
 import { api } from '@/services/api';
-import { Layers, Plus, Play, Users, X, RefreshCw, ChevronRight, Trash2 } from 'lucide-react';
+import { Layers, Plus, Users, X, RefreshCw, Trash2, Sparkles, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/components/ui/toast';
-import { SkeletonCard } from '@/components/ui/skeleton';
-
-const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.07 } } };
-const item: any = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 26 } } };
 
 const OPERATOR_LABELS: Record<string, string> = {
-  eq: 'is equal to',
-  neq: 'is not equal to',
-  gt: 'is greater than',
-  gte: 'is greater than or equal to',
-  lt: 'is less than',
-  lte: 'is less than or equal to',
-  contains: 'contains text',
-  in: 'is in list'
+  eq: '=',
+  neq: '≠',
+  gt: '>',
+  gte: '≥',
+  lt: '<',
+  lte: '≤',
+  contains: 'contains',
+  in: 'in'
 };
 
 const FIELD_LABELS: Record<string, string> = {
-  status: 'status',
-  lead_score: 'interest level',
-  company: 'company name',
-  email: 'email address',
-  days_since_last_activity: 'days since last activity',
-  last_active: 'last active'
+  status: 'Status',
+  lead_score: 'Interest Index',
+  company: 'Company',
+  email: 'Email Domain',
+  days_since_last_activity: 'Days Inactive',
 };
 
 interface RuleItem {
@@ -51,14 +46,18 @@ export default function SegmentsPage() {
   const [evalResults, setEvalResults]   = useState<Record<string, number>>({});
   const [showModal, setShowModal]       = useState(false);
   const [saving, setSaving]             = useState(false);
-  const [form, setForm]                 = useState<SegmentForm>({ name: '', description: '', rules: [{ field: 'status', operator: 'eq', value: 'active' }] });
+  const [form, setForm]                 = useState<SegmentForm>({
+    name: '',
+    description: '',
+    rules: [{ field: 'status', operator: 'eq', value: 'active' }],
+  });
 
   const loadSegments = async () => {
     try {
       const segs = await api.getSegments() as any[];
-      setSegments(segs);
-    } catch (err) {
-      toastError('Failed to load customer groups');
+      setSegments(segs || []);
+    } catch {
+      toastError('Failed to load audience segments');
     } finally {
       setLoading(false);
     }
@@ -72,7 +71,7 @@ export default function SegmentsPage() {
       const result = await api.evaluateSegment(segmentId) as any;
       setEvalResults(prev => ({ ...prev, [segmentId]: result.count }));
     } catch (err: any) {
-      toastError(err.message || 'Failed to calculate group size');
+      toastError(err.message || 'Failed to calculate segment size');
     } finally {
       setEvaluating(null);
     }
@@ -90,235 +89,314 @@ export default function SegmentsPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || form.rules.length === 0) { toastError('Name and at least one rule are required'); return; }
+    if (!form.name || form.rules.length === 0) {
+      toastError('Segment title and at least one rule are required');
+      return;
+    }
     setSaving(true);
     try {
       await api.createSegment({ name: form.name, description: form.description, definition: form.rules });
-      success('Customer group created!');
+      success('Audience segment created!');
       setShowModal(false);
       setForm({ name: '', description: '', rules: [{ field: 'status', operator: 'eq', value: 'active' }] });
       loadSegments();
     } catch (err: any) {
-      toastError(err.message || 'Failed to create group');
+      toastError(err.message || 'Failed to create segment');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteSegment = async (id: string, name: string) => {
-    if (!confirm(`Delete group "${name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete segment "${name}"?`)) return;
     try {
       await api.deleteSegment(id);
-      success('Group deleted');
+      success('Segment deleted');
       loadSegments();
     } catch (err: any) {
-      toastError(err.message || 'Failed to delete group');
+      toastError(err.message || 'Failed to delete segment');
     }
   };
 
   return (
     <LayoutWrapper>
-      <motion.div variants={container} initial="hidden" animate="show" className="space-y-7 pb-8 text-[var(--text-primary)]">
+      <div className="space-y-8 pb-10 font-mono">
 
         {/* Header */}
-        <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-[var(--text-primary)]">Customer Groups</h1>
-            <p className="text-zinc-500 text-sm mt-1">Create custom groups of contacts based on rules to send targeted messages.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-xl relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #0E141F 0%, #1E222B 50%, #2F3654 100%)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold text-white">Audience Segments & Cohorts</h1>
+            <p className="text-xs" style={{ color: '#AAB3C2' }}>
+              Dynamic rule-based and vectorized cohorts isolated strictly to your workspace.
+            </p>
           </div>
-          <button onClick={() => setShowModal(true)} className="btn btn-primary self-start sm:self-auto py-2.5 px-4 rounded-xl shadow-md">
-            <Plus className="w-4 h-4" /> New Group
+          <button
+            onClick={() => setShowModal(true)}
+            className="btn-primary text-xs px-4 py-2 self-start sm:self-auto"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Create Cohort</span>
           </button>
-        </motion.div>
+        </div>
 
-        {/* Segment Cards */}
-        <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {loading
-            ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-            : segments.map((seg: any) => {
-                const definition: RuleItem[] = typeof seg.definition === 'string'
-                  ? JSON.parse(seg.definition) : seg.definition;
-                const matchCount = evalResults[seg.id];
+        {/* Segments Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-44 rounded-xl animate-pulse" style={{ background: '#1E222B', border: '1px solid rgba(255,255,255,0.06)' }} />
+            ))
+          ) : segments.length === 0 ? (
+            <div className="col-span-full py-16 text-center rounded-xl space-y-3"
+              style={{ border: '1px dashed rgba(255,255,255,0.12)' }}>
+              <Layers className="w-10 h-10 mx-auto" style={{ color: '#5F6878' }} />
+              <h3 className="text-sm font-bold text-white">No segments created yet</h3>
+              <p className="text-xs" style={{ color: '#AAB3C2' }}>Build rule-based cohorts or generate them via the AI Studio.</p>
+              <button
+                onClick={() => setShowModal(true)}
+                className="btn-primary text-xs px-4 py-2 mx-auto"
+              >
+                <Plus className="w-3.5 h-3.5" /> Create Cohort
+              </button>
+            </div>
+          ) : (
+            segments.map((seg: any) => {
+              const definition: RuleItem[] = typeof seg.definition === 'string'
+                ? JSON.parse(seg.definition)
+                : seg.definition;
+              const matchCount = evalResults[seg.id];
 
-                return (
-                  <motion.div key={seg.id} whileHover={{ y: -3 }} className="card glass card-hover flex flex-col gap-4 border border-[var(--border)] shadow-sm justify-between">
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-150 shrink-0">
-                          <Layers className="w-4 h-4 text-indigo-600" />
+              return (
+                <div
+                  key={seg.id}
+                  className="p-5 rounded-xl flex flex-col justify-between gap-4 transition-all min-w-0 overflow-hidden"
+                  style={{ background: '#1E222B', border: '1px solid rgba(255,255,255,0.08)' }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(11,133,252,0.30)')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
+                >
+                  <div className="space-y-3 min-w-0">
+                    <div className="flex items-start justify-between gap-3 min-w-0">
+                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                        <div className="p-2 rounded-lg shrink-0 mt-0.5" style={{ background: 'rgba(86,96,243,0.12)', border: '1px solid rgba(86,96,243,0.22)' }}>
+                          <Filter className="w-3.5 h-3.5" style={{ color: '#5660F3' }} />
                         </div>
-                        <div>
-                          <h3 className="font-bold text-sm text-[var(--text-primary)]">{seg.name}</h3>
-                          {seg.description && <p className="text-[10px] text-zinc-400 mt-0.5">{seg.description}</p>}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-bold truncate text-white" title={seg.name}>{seg.name}</h3>
+                          {seg.description && (
+                            <p
+                              className="text-[11px] mt-1 line-clamp-2 leading-relaxed break-words"
+                              title={seg.description}
+                              style={{ color: '#AAB3C2' }}
+                            >
+                              {seg.description}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {matchCount !== undefined && (
-                          <div className="text-right">
-                            <p className="text-2xl font-black text-emerald-600">{matchCount}</p>
-                            <p className="text-[9px] text-zinc-400 font-bold uppercase">matching people</p>
-                          </div>
-                        )}
-                        <button
-                          onClick={() => handleDeleteSegment(seg.id, seg.name)}
-                          className="p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                          title="Delete group"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+
+                      <button
+                        onClick={() => handleDeleteSegment(seg.id, seg.name)}
+                        className="p-1 rounded transition-colors cursor-pointer shrink-0"
+                        style={{ color: 'rgba(255,255,255,0.25)' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#EF4444')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.25)')}
+                        title="Delete segment"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
 
-                    {/* Rules */}
-                    <div className="space-y-1.5 flex-1 mt-2">
-                      <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Group Rules</p>
-                      <div className="bg-[var(--bg-overlay)] border border-[var(--border)] rounded-xl p-3.5 space-y-1.5 font-mono text-[10.5px]">
-                        {(definition || []).map((rule, ridx) => (
-                          <div key={ridx} className="flex items-center gap-2 flex-wrap">
-                            <span className="text-indigo-600 font-bold">{FIELD_LABELS[rule.field] || rule.field}</span>
-                            <span className="text-zinc-400 font-medium">{OPERATOR_LABELS[rule.operator] || rule.operator}</span>
-                            <span className="text-emerald-600 font-semibold">
-                              {Array.isArray(rule.value) ? `[${rule.value.join(', ')}]` : String(rule.value)}
-                            </span>
-                            {ridx < (definition || []).length - 1 && (
-                              <span className="text-zinc-400 ml-auto font-bold text-[9px] bg-zinc-200/50 px-1 py-0.5 rounded">AND</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                    {/* Rule Expressions */}
+                    <div className="p-3 rounded-lg text-[11px] space-y-1.5 overflow-hidden"
+                      style={{ background: 'rgba(14,20,31,0.60)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                      <span className="text-[9px] uppercase font-bold block" style={{ color: '#5F6878' }}>Evaluation Criteria</span>
+                      {(definition || []).map((rule, idx) => (
+                        <div key={idx} className="flex items-center gap-2 flex-wrap text-xs min-w-0">
+                          <span className="font-semibold" style={{ color: '#F7F9FC' }}>{FIELD_LABELS[rule.field] || rule.field}</span>
+                          <span style={{ color: '#5F6878' }}>{OPERATOR_LABELS[rule.operator] || rule.operator}</span>
+                          <span className="px-1.5 py-0.5 rounded break-all max-w-full" style={{ background: 'rgba(11,133,252,0.12)', color: '#0B85FC', border: '1px solid rgba(11,133,252,0.22)' }}>
+                            {Array.isArray(rule.value) ? rule.value.join(', ') : String(rule.value)}
+                          </span>
+                          {idx < (definition || []).length - 1 && (
+                            <span className="text-[9px] uppercase ml-auto shrink-0" style={{ color: '#5F6878' }}>AND</span>
+                          )}
+                        </div>
+                      ))}
                     </div>
+                  </div>
 
-                    {/* Evaluate button */}
+                  {/* Footer & Evaluation */}
+                  <div className="pt-3 flex items-center justify-between gap-2" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                    <div className="text-left min-w-0">
+                      <p className="text-xs" style={{ color: '#5F6878' }}>
+                        Audience: <strong className="text-white">{matchCount !== undefined ? matchCount : '—'}</strong>
+                      </p>
+                    </div>
                     <button
                       onClick={() => handleEvaluate(seg.id)}
                       disabled={evaluating === seg.id}
-                      className="btn btn-secondary w-full text-xs py-2 rounded-xl mt-3"
+                      className="py-1.5 px-3 rounded-lg text-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-all"
+                      style={{ background: 'rgba(255,255,255,0.06)', color: '#AAB3C2', border: '1px solid rgba(255,255,255,0.10)' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(11,133,252,0.10)'; e.currentTarget.style.color = '#0B85FC'; e.currentTarget.style.borderColor = 'rgba(11,133,252,0.25)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#AAB3C2'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
                     >
                       {evaluating === seg.id ? (
-                        <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Calculating…</>
+                        <RefreshCw className="w-3 h-3 animate-spin" />
                       ) : (
-                        <><Users className="w-3.5 h-3.5 text-zinc-500" /> Calculate Group Size</>
+                        <Users className="w-3 h-3" />
                       )}
+                      <span>{evaluating === seg.id ? 'Evaluating...' : 'Query Match'}</span>
                     </button>
-                  </motion.div>
-                );
-              })}
-        </motion.div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
 
-        {/* Empty State */}
-        {!loading && segments.length === 0 && (
-          <motion.div variants={item} className="card glass text-center py-16 border border-[var(--border)] shadow-sm">
-            <Layers className="w-12 h-12 text-zinc-300 mx-auto mb-3" />
-            <h3 className="font-bold text-zinc-400">No customer groups created yet</h3>
-            <p className="text-sm text-zinc-500 mt-1">Groups are automatically created by your AI assistant, or you can create one yourself.</p>
-            <button onClick={() => setShowModal(true)} className="btn btn-primary mt-5 mx-auto py-2.5 px-4 rounded-xl shadow-md">
-              <Plus className="w-4 h-4" /> Create Group
-            </button>
-          </motion.div>
-        )}
-
-      </motion.div>
+      </div>
 
       {/* Create Segment Modal */}
       <AnimatePresence>
         {showModal && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 font-mono"
+            style={{ background: 'rgba(8,12,20,0.75)', backdropFilter: 'blur(10px)' }}
             onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="card w-full max-w-lg glass max-h-[85vh] overflow-y-auto scroll-area border border-[var(--border)] shadow-2xl"
+              initial={{ scale: 0.96, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              className="w-full max-w-lg p-6 rounded-xl space-y-4"
+              style={{ background: '#1E222B', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 24px 80px rgba(0,0,0,0.55)' }}
             >
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="font-bold text-lg text-[var(--text-primary)]">Create Group</h2>
-                <button onClick={() => setShowModal(false)} className="text-zinc-400 hover:text-zinc-600 cursor-pointer"><X className="w-4 h-4" /></button>
+              <div className="flex items-center justify-between pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <h2 className="text-sm font-bold text-white">Define Audience Cohort</h2>
+                <button onClick={() => setShowModal(false)} className="transition-colors cursor-pointer" style={{ color: '#5F6878' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#FFFFFF')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#5F6878')}>
+                  <X className="w-4 h-4" />
+                </button>
               </div>
+
               <form onSubmit={handleCreate} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Group Name *</label>
-                  <input required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} placeholder="e.g. Active VIP Customers" className="input text-xs" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Description</label>
-                  <input value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} placeholder="e.g. Customers who engage frequently and have high scores" className="input text-xs" />
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold" style={{ color: '#5F6878' }}>Cohort Name *</label>
+                  <input
+                    required
+                    value={form.name}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="e.g. Inactive Enterprise Tier 1"
+                    className="catalyst-input-dark text-xs"
+                  />
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold" style={{ color: '#5F6878' }}>Cohort Objective</label>
+                  <input
+                    value={form.description}
+                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Target criteria explanation..."
+                    className="catalyst-input-dark text-xs"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Rules for who gets in *</label>
-                    <button type="button" onClick={addRule} className="btn btn-ghost text-xs py-1 px-2 text-indigo-600 hover:bg-indigo-50 rounded"><Plus className="w-3 h-3" /> Add Rule</button>
+                    <label className="text-[10px] uppercase font-bold" style={{ color: '#5F6878' }}>Inclusion Filter Rules *</label>
+                    <button
+                      type="button"
+                      onClick={addRule}
+                      className="text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                      style={{ color: '#0B85FC' }}
+                    >
+                      <Plus className="w-3 h-3" /> Add Rule
+                    </button>
                   </div>
+
                   {form.rules.map((rule, idx) => (
-                    <div key={idx} className="grid grid-cols-12 gap-2.5 items-center p-2.5 bg-slate-50/40 border border-slate-200/60 rounded-xl shadow-sm">
-                      <div className="col-span-12 sm:col-span-4">
+                    <div key={idx} className="grid grid-cols-12 gap-2 p-2.5 rounded-lg items-center"
+                      style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(14,20,31,0.50)' }}>
+                      <div className="col-span-4">
                         <select
                           value={rule.field}
                           onChange={e => updateRule(idx, 'field', e.target.value)}
-                          className="input text-xs py-2 bg-white cursor-pointer"
+                          className="catalyst-input-dark catalyst-select-dark text-xs"
                         >
-                          <option value="status">status</option>
-                          <option value="lead_score">interest level</option>
-                          <option value="company">company name</option>
-                          <option value="email">email address</option>
+                          <option value="status">Status</option>
+                          <option value="lead_score">Interest Score</option>
+                          <option value="company">Company</option>
+                          <option value="email">Email</option>
                         </select>
                       </div>
-                      <div className="col-span-12 sm:col-span-4">
+
+                      <div className="col-span-3">
                         <select
                           value={rule.operator}
                           onChange={e => updateRule(idx, 'operator', e.target.value)}
-                          className="input text-xs py-2 bg-white cursor-pointer"
+                          className="catalyst-input-dark catalyst-select-dark text-xs"
                         >
-                          <option value="eq">is equal to</option>
-                          <option value="neq">is not equal to</option>
-                          <option value="gt">is greater than</option>
-                          <option value="gte">is greater or equal</option>
-                          <option value="lt">is less than</option>
-                          <option value="lte">is less or equal</option>
-                          <option value="contains">contains text</option>
-                          <option value="in">is in list</option>
+                          <option value="eq">=</option>
+                          <option value="neq">≠</option>
+                          <option value="gt">&gt;</option>
+                          <option value="gte">≥</option>
+                          <option value="lt">&lt;</option>
+                          <option value="lte">≤</option>
+                          <option value="contains">contains</option>
                         </select>
                       </div>
-                      <div className="col-span-10 sm:col-span-3">
+
+                      <div className="col-span-4">
                         <input
                           value={Array.isArray(rule.value) ? rule.value.join(', ') : String(rule.value)}
                           onChange={e => updateRule(idx, 'value', e.target.value)}
-                          placeholder="value"
-                          className="input text-xs py-2 bg-white"
+                          placeholder="Value"
+                          className="catalyst-input-dark text-xs"
                         />
                       </div>
-                      <div className="col-span-2 sm:col-span-1 flex justify-center">
+
+                      <div className="col-span-1 text-center">
                         {form.rules.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeRule(idx)}
-                            className="text-zinc-400 hover:text-red-500 cursor-pointer p-1.5 hover:bg-red-50/50 rounded-lg transition-colors"
+                            className="transition-colors cursor-pointer"
+                            style={{ color: 'rgba(255,255,255,0.25)' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = '#EF4444')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.25)')}
                           >
-                            <X className="w-4 h-4" />
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
                     </div>
                   ))}
-                  {form.rules.length > 1 && (
-                    <p className="text-[10px] text-zinc-500 font-medium">All rules must be met for a contact to be added to this group.</p>
-                  )}
                 </div>
 
-                <div className="flex gap-3 pt-3 border-t border-[var(--border)]">
-                  <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary flex-1 py-2.5 rounded-xl">Cancel</button>
-                  <button type="submit" disabled={saving} className="btn btn-primary flex-1 py-2.5 rounded-xl shadow-md">
-                    {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" /> Create Group</>}
+                <div className="flex gap-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="flex-1 py-2 rounded-lg text-xs transition-colors"
+                    style={{ background: 'rgba(255,255,255,0.06)', color: '#AAB3C2', border: '1px solid rgba(255,255,255,0.10)' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="flex-1 btn-primary text-xs py-2"
+                  >
+                    {saving ? 'Creating...' : 'Save Cohort'}
                   </button>
                 </div>
               </form>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
+
     </LayoutWrapper>
   );
 }

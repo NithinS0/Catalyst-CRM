@@ -28,12 +28,8 @@ class Settings(BaseSettings):
         env="GROQ_API_KEY"
     )
     GROQ_MODEL: str = Field(
-        default="llama-3.3-70b-versatile",
+        default="groq/compound-mini",
         env="GROQ_MODEL"
-    )
-    CHANNEL_SERVICE_URL: str = Field(
-        default="http://localhost:8001",
-        env="CHANNEL_SERVICE_URL"
     )
 
     # LangSmith tracing
@@ -44,6 +40,20 @@ class Settings(BaseSettings):
     )
     LANGCHAIN_API_KEY: str = Field(default="", env="LANGCHAIN_API_KEY")
     LANGCHAIN_PROJECT: str = Field(default="catalyst-crm", env="LANGCHAIN_PROJECT")
+
+    # Email Provider Settings
+    EMAIL_PROVIDER: str = Field(default="resend", env="EMAIL_PROVIDER")
+    RESEND_API_KEY: str = Field(default="", env="RESEND_API_KEY")
+    EMAIL_FROM: str = Field(default="onboarding@resend.dev", env="EMAIL_FROM")
+    EMAIL_FROM_NAME: str = Field(default="Catalyst CRM", env="EMAIL_FROM_NAME")
+    EMAIL_REPLY_TO: str = Field(default="", env="EMAIL_REPLY_TO")
+    RESEND_WEBHOOK_SECRET: str = Field(default="", env="RESEND_WEBHOOK_SECRET")
+    SMTP_HOST: str = Field(default="", env="SMTP_HOST")
+    SMTP_PORT: int = Field(default=587, env="SMTP_PORT")
+    SMTP_USERNAME: str = Field(default="", env="SMTP_USERNAME")
+    SMTP_PASSWORD: str = Field(default="", env="SMTP_PASSWORD")
+    SMTP_USE_TLS: bool = Field(default=True, env="SMTP_USE_TLS")
+    CORS_ORIGINS: str = Field(default="", env="CORS_ORIGINS")
 
 
     class Config:

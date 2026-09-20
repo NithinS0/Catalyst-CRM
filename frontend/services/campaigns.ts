@@ -1,4 +1,4 @@
-import { request } from './api';
+import { request } from './client';
 
 export const campaignService = {
   getCampaigns: () => request('/api/campaigns'),
@@ -26,6 +26,25 @@ export const campaignService = {
     request(`/api/campaigns/${campaignId}/trigger`, {
       method: 'POST',
     }),
+
+  sendTestEmail: (campaignId: string, testEmail?: string) =>
+    request(`/api/campaigns/${campaignId}/test-email`, {
+      method: 'POST',
+      body: JSON.stringify({ recipient_email: testEmail }),
+    }),
+
+  sendAdhocTestEmail: (subject: string, contentTemplate: string, recipientEmail?: string) =>
+    request('/api/campaigns/send-test-email', {
+      method: 'POST',
+      body: JSON.stringify({
+        subject,
+        content_template: contentTemplate,
+        recipient_email: recipientEmail,
+      }),
+    }),
+
+  getExecutionMonitor: (campaignId: string) =>
+    request<any>(`/api/campaigns/${campaignId}/monitor`),
 
   getCampaignReport: (campaignId: string) =>
     request<{ report: string }>(`/api/campaigns/${campaignId}/report`),

@@ -1,11 +1,21 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional, Dict, Any
 from backend.services.customer_service import CustomerService
 from backend.database.repositories.campaign_repository import CampaignRepository
+from backend.utils.auth import has_permission, Permission
 
-router = APIRouter(prefix="/api/customers", tags=["customers"])
-segments_router = APIRouter(prefix="/api/segments", tags=["segments"])
+router = APIRouter(
+    prefix="/api/customers", 
+    tags=["customers"],
+    dependencies=[Depends(has_permission(Permission.READ_ONLY))]
+)
+
+segments_router = APIRouter(
+    prefix="/api/segments", 
+    tags=["segments"],
+    dependencies=[Depends(has_permission(Permission.READ_ONLY))]
+)
 
 class CustomerCreate(BaseModel):
     first_name: str
@@ -45,7 +55,7 @@ class SegmentCreate(BaseModel):
 def list_customers():
     return CustomerService.list_customers()
 
-@router.post("")
+@router.post("", dependencies=[Depends(has_permission(Permission.MANAGE_CUSTOMERS))])
 def create_customer(customer: CustomerCreate):
     try:
         return CustomerService.create_customer(
@@ -72,7 +82,7 @@ def get_customer(customer_id: str, search_query: Optional[str] = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/{customer_id}")
+@router.put("/{customer_id}", dependencies=[Depends(has_permission(Permission.MANAGE_CUSTOMERS))])
 def update_customer(customer_id: str, updates: CustomerUpdate):
     try:
         updates_dict = updates.dict(exclude_unset=True)
@@ -82,7 +92,7 @@ def update_customer(customer_id: str, updates: CustomerUpdate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/{customer_id}")
+@router.delete("/{customer_id}", dependencies=[Depends(has_permission(Permission.MANAGE_CUSTOMERS))])
 def delete_customer(customer_id: str):
     try:
         return CustomerService.delete_customer(customer_id)
@@ -100,7 +110,7 @@ def get_customer_orders(customer_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/{customer_id}/interactions")
+@router.post("/{customer_id}/interactions", dependencies=[Depends(has_permission(Permission.MANAGE_CUSTOMERS))])
 def add_interaction(customer_id: str, interaction: InteractionCreate):
     try:
         return CustomerService.add_interaction(
@@ -122,7 +132,7 @@ def add_interaction(customer_id: str, interaction: InteractionCreate):
 def list_segments():
     return CustomerService.list_segments()
 
-@segments_router.post("")
+@segments_router.post("", dependencies=[Depends(has_permission(Permission.MANAGE_SEGMENTS))])
 def create_segment(segment: SegmentCreate):
     return CustomerService.create_segment(
         name=segment.name,
@@ -139,7 +149,7 @@ def evaluate_segment(segment_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@segments_router.delete("/{segment_id}")
+@segments_router.delete("/{segment_id}", dependencies=[Depends(has_permission(Permission.MANAGE_SEGMENTS))])
 def delete_segment(segment_id: str):
     try:
         CampaignRepository.delete_segment(segment_id)
